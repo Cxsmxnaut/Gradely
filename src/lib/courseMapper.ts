@@ -1,6 +1,23 @@
 import { AdaptedCourse } from '../adapters/gradeAdapter';
 import { Course, Assignment } from '../types';
 
+// Helper function to convert percentage to letter grade
+function getLetterGradeFromPercent(percent: number): string {
+  if (percent >= 97) return 'A+';
+  if (percent >= 93) return 'A';
+  if (percent >= 90) return 'A-';
+  if (percent >= 87) return 'B+';
+  if (percent >= 83) return 'B';
+  if (percent >= 80) return 'B-';
+  if (percent >= 77) return 'C+';
+  if (percent >= 73) return 'C';
+  if (percent >= 70) return 'C-';
+  if (percent >= 67) return 'D+';
+  if (percent >= 63) return 'D';
+  if (percent >= 60) return 'D-';
+  return 'F';
+}
+
 /**
  * Maps AdaptedCourse data structure to Course data structure
  * This bridges the gap between backend adapter and UI expectations
@@ -19,17 +36,53 @@ export function mapAdaptedCourseToCourse(adaptedCourse: AdaptedCourse): Course {
     weight: 1, // Default weight, can be enhanced later
     dueDate: adaptedAssignment.dueDate || '',
     isHypothetical: false,
+    isNotGraded: adaptedAssignment.isNotGraded || false,
   }));
 
   // Generate category weights from assignment categories
-  // In a real implementation, this would come from the backend
+  // Try to extract actual weights from the backend data structure
   const categoryWeights: Record<string, number> = {};
   const categories = [...new Set(assignments.map(a => a.category))];
   
-  // Distribute weights evenly among categories (fallback logic)
+  // For now, distribute weights evenly among categories
+  // TODO: Extract actual category weights from backend API when available
   const weightPerCategory = categories.length > 0 ? 100 / categories.length : 100;
   categories.forEach(category => {
     categoryWeights[category] = weightPerCategory;
+  });
+
+  // Use the backend percentage if available, otherwise calculate from assignments
+  let currentGrade = adaptedCourse.percent;
+  
+  // If backend percent is 0 or undefined, calculate from assignments
+  if (!currentGrade || currentGrade === 0) {
+    console.log(`🔍 Backend percent missing for ${adaptedCourse.name}, calculating from assignments`);
+    currentGrade = calculateCourseGradeFromAssignments({
+      id: courseId,
+      name: adaptedCourse.name,
+      teacher: adaptedCourse.teacher,
+      period: adaptedCourse.period,
+      room: 'TBD',
+      currentGrade: 0,
+      letterGrade: adaptedCourse.letterGrade,
+      assignments,
+      categoryWeights,
+    });
+  }
+
+  // Ensure we have a valid letter grade, calculate from percentage if needed
+  let finalLetterGrade = adaptedCourse.letterGrade;
+  if (!finalLetterGrade && currentGrade > 0) {
+    finalLetterGrade = getLetterGradeFromPercent(currentGrade);
+  }
+
+  console.log(`🔍 Mapped course ${adaptedCourse.name}:`, {
+    backendPercent: adaptedCourse.percent,
+    finalCurrentGrade: currentGrade,
+    finalLetterGrade,
+    assignmentsCount: assignments.length,
+    categories: categories,
+    categoryWeights
   });
 
   return {
@@ -38,8 +91,8 @@ export function mapAdaptedCourseToCourse(adaptedCourse: AdaptedCourse): Course {
     teacher: adaptedCourse.teacher,
     period: adaptedCourse.period,
     room: 'TBD', // Not available in AdaptedCourse
-    currentGrade: adaptedCourse.percent,
-    letterGrade: adaptedCourse.letterGrade,
+    currentGrade,
+    letterGrade: finalLetterGrade,
     assignments,
     categoryWeights,
   };

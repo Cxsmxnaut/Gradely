@@ -1,6 +1,4 @@
-import { USE_MOCK } from '../config/dataConfig';
 import { adaptGradebook } from './gradeAdapter';
-import { mockUser, mockCourses, mockAttendance, mockDocuments } from '../data/mockData';
 import { getGradebookRecord } from '../lib/grades/catalog';
 import { parseResult } from '../lib/synergy';
 import type { GradebookResult } from '../lib/types/Gradebook';
@@ -16,13 +14,8 @@ export function setAuthCredentials(_credentials: {
   // Note: In a real implementation, you might store these securely or use them directly
 }
 
-// Unified data service with mock/real switch
+// Unified data service - always use real data
 export async function fetchGrades() {
-  if (USE_MOCK) {
-    console.log('🔸 Using mock grades data');
-    return mockCourses; // Already Course[] type
-  }
-  
   try {
     console.log('🔹 Fetching real grades data');
     const record = await getGradebookRecord();
@@ -35,58 +28,83 @@ export async function fetchGrades() {
     return courses;
   } catch (error) {
     console.error('Failed to fetch grades:', error);
-    // Fallback to mock on error
-    return mockCourses;
+    throw error; // Don't fallback to mock, let the error propagate
   }
 }
 
 export async function fetchStudent() {
-  if (USE_MOCK) {
-    console.log('🔸 Using mock student data');
-    return mockUser.studentInfo;
-  }
-  
   try {
     console.log('🔹 Fetching real student data');
-    // TODO: Implement student info fetching from backend
-    // For now, return mock
-    return mockUser.studentInfo;
+    const { acc } = await import('../lib/account.svelte');
+    
+    if (!acc.studentAccount) {
+      throw new Error('Student account not loaded');
+    }
+    
+    const studentData = await acc.studentAccount.studentInfo();
+    console.log('🔹 Raw student data:', studentData);
+    console.log('📸 Raw photo data:', {
+      hasPhoto: !!studentData.Photo,
+      photoType: typeof studentData.Photo,
+      photoLength: studentData.Photo?.length || 0,
+      photoPreview: studentData.Photo ? studentData.Photo.substring(0, 100) + '...' : 'No photo',
+      startsWithData: studentData.Photo ? studentData.Photo.substring(0, 20) : 'N/A'
+    });
+    
+    // Adapt the student data using the existing adapter
+    const { adaptStudent } = await import('./gradeAdapter');
+    const adaptedStudent = adaptStudent({ StudentInfo: studentData });
+    
+    console.log('✅ Student data fetched and adapted:', adaptedStudent);
+    console.log('📸 Student photo available:', !!adaptedStudent.photo, adaptedStudent.photo ? 'Photo data length: ' + adaptedStudent.photo.length : 'No photo');
+    
+    return adaptedStudent;
   } catch (error) {
     console.error('Failed to fetch student:', error);
-    return mockUser.studentInfo;
+    throw error;
   }
 }
 
 export async function fetchAttendance() {
-  if (USE_MOCK) {
-    console.log('🔸 Using mock attendance data');
-    return mockAttendance;
-  }
-  
   try {
-    console.log('🔹 Fetching real attendance data');
-    // TODO: Implement attendance fetching from backend
-    // For now, return mock
-    return mockAttendance;
+    console.log('🔹 Fetching real attendance data...');
+    const { getAttendanceRecord } = await import('../lib/grades/catalog');
+    const { adaptAttendance } = await import('./gradeAdapter');
+    
+    console.log('🔹 Calling getAttendanceRecord...');
+    const attendanceRecord = await getAttendanceRecord();
+    
+    // Parse the JSON data back to object
+    const attendanceData = JSON.parse(attendanceRecord.xml);
+    console.log('🔹 Raw attendance data structure:', attendanceData);
+    console.log('🔹 Adapting attendance data...');
+    const adaptedAttendance = adaptAttendance(attendanceData);
+    
+    console.log('🔹 Real attendance data received:', adaptedAttendance.length, 'records');
+    
+    // Convert AdaptedAttendance to AttendanceRecord format
+    const result = adaptedAttendance.map((attendance, index) => ({
+      id: `attendance-${index}`,
+      date: attendance.date,
+      status: attendance.status,
+      courseName: attendance.course,
+    }));
+    
+    console.log('🔹 Final attendance result:', result);
+    return result;
   } catch (error) {
-    console.error('Failed to fetch attendance:', error);
-    return mockAttendance;
+    console.error('❌ Failed to fetch attendance:', error);
+    throw error;
   }
 }
 
 export async function fetchDocuments() {
-  if (USE_MOCK) {
-    console.log('🔸 Using mock documents data');
-    return mockDocuments;
-  }
-  
   try {
     console.log('🔹 Fetching real documents data');
     // TODO: Implement documents fetching from backend
-    // For now, return mock
-    return mockDocuments;
+    throw new Error('Documents fetching not implemented yet');
   } catch (error) {
     console.error('Failed to fetch documents:', error);
-    return mockDocuments;
+    throw error;
   }
 }

@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types';
-import { mockUser } from '@/data/mockData';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   credentials: {
     districtUrl: string;
     username: string;
@@ -23,43 +23,115 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     username: string;
     password: string;
   } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user was remembered
-    const savedAuth = localStorage.getItem('savedAuth');
-    if (savedAuth) {
+    const restoreAuth = async () => {
       try {
-        const auth = JSON.parse(savedAuth);
-        setCredentials(auth);
+        // Check for persisted auth session
+        const authSession = localStorage.getItem('auth_session');
+        const authUser = localStorage.getItem('auth_user');
+        const districtDomain = localStorage.getItem('district_domain');
         
-        // Restore the student account if credentials exist
-        if (auth.districtUrl && auth.username && auth.password) {
-          import('../lib/synergy').then(({ StudentAccount }) => {
-            import('../lib/account.svelte').then(({ acc }) => {
-              const studentAccount = new StudentAccount(auth.districtUrl, auth.username, auth.password);
-              acc.studentAccount = studentAccount;
+        if (authSession && authUser && districtDomain) {
+          console.log('🔹 Restoring authentication session from storage');
+          
+          const session = JSON.parse(authSession);
+          const user = JSON.parse(authUser);
+          
+          // Validate session is still valid (basic check)
+          if (session.isValid && user.username) {
+            // Restore credentials for API calls
+            setCredentials({
+              districtUrl: districtDomain,
+              username: user.username,
+              password: session.password
             });
-          });
+            
+            // Initialize student account without re-validating
+            const { StudentAccount } = await import('../lib/synergy');
+            const { acc } = await import('../lib/account.svelte');
+            
+            const studentAccount = new StudentAccount(districtDomain, user.username, session.password);
+            acc.studentAccount = studentAccount;
+            
+            // Try to fetch fresh student data
+            try {
+              const { fetchStudent } = await import('../adapters/dataService');
+              const adaptedStudent = await fetchStudent();
+              console.log('✅ Fresh student data fetched during session restore:', adaptedStudent);
+              
+              // Check for manual student info overrides
+              const manualStudentInfo = localStorage.getItem('manual_student_info');
+              let manualInfo: Record<string, string> = {};
+              if (manualStudentInfo) {
+                try {
+                  manualInfo = JSON.parse(manualStudentInfo);
+                  console.log('📝 Loaded manual student info:', manualInfo);
+                } catch (e) {
+                  console.warn('Failed to parse manual student info:', e);
+                }
+              }
+              
+              // Update user with fresh student data + manual overrides
+              const updatedStudentInfo = {
+                id: adaptedStudent.studentId || user.studentInfo?.id || 'REAL_USER',
+                name: adaptedStudent.name || user.studentInfo?.name || 'Student',
+                gradeLevel: adaptedStudent.gradeLevel || user.studentInfo?.gradeLevel || 'Loading...',
+                email: manualInfo.email || user.studentInfo?.email || '',
+                phone: manualInfo.phone || user.studentInfo?.phone || '',
+                studentId: adaptedStudent.studentId || user.username,
+                schoolName: manualInfo.schoolName || adaptedStudent.schoolName || user.studentInfo?.schoolName || 'Loading...',
+                counselor: manualInfo.counselor || adaptedStudent.counselor || user.studentInfo?.counselor || '',
+                parentName: manualInfo.parentName || user.studentInfo?.parentName || '',
+                parentEmail: manualInfo.parentEmail || user.studentInfo?.parentEmail || '',
+                parentPhone: manualInfo.parentPhone || user.studentInfo?.parentPhone || '',
+                photo: adaptedStudent.photo || user.studentInfo?.photo || ''
+              };
+              
+              const updatedUser = {
+                ...user,
+                studentInfo: updatedStudentInfo
+              };
+              
+              setUser(updatedUser);
+            } catch (studentError) {
+              console.warn('Failed to fetch fresh student data during restore, using cached:', studentError);
+              setUser(user);
+            }
+            
+            console.log('✅ Authentication session restored successfully');
+          } else {
+            console.warn('🔹 Invalid session data, clearing storage');
+            clearAuthStorage();
+          }
+        } else {
+          console.log('🔹 No existing authentication session found');
         }
-        
-        setUser(mockUser); // Will be replaced with real user data
-      } catch {
-        localStorage.removeItem('savedAuth');
+      } catch (error) {
+        console.warn('Failed to restore authentication session:', error);
+        clearAuthStorage();
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+
+    restoreAuth();
   }, []);
+
+  // Helper function to clear all auth storage
+  const clearAuthStorage = () => {
+    localStorage.removeItem('auth_session');
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('district_domain');
+    localStorage.removeItem('savedAuth'); // Clear old format
+  };
 
   const login = async (districtUrl: string, username: string, password: string, remember: boolean) => {
     try {
       // Store credentials for API calls
       const creds = { districtUrl, username, password };
       setCredentials(creds);
-      
-      if (remember) {
-        localStorage.setItem('savedAuth', JSON.stringify(creds));
-      } else {
-        localStorage.removeItem('savedAuth');
-      }
       
       // Real authentication with StudentVUE backend
       try {
@@ -76,13 +148,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Store the authenticated account in the global acc object
         acc.studentAccount = studentAccount;
         
-        // If successful, create user object for the UI
-        const user = {
-          username,
-          password,
-          studentInfo: {
+        // Fetch real student data
+        let studentInfo;
+        try {
+          const { fetchStudent } = await import('../adapters/dataService');
+          const adaptedStudent = await fetchStudent();
+          console.log('✅ Real student data fetched:', adaptedStudent);
+          
+          // Check for manual student info overrides
+          const manualStudentInfo = localStorage.getItem('manual_student_info');
+          let manualInfo: Record<string, string> = {};
+          if (manualStudentInfo) {
+            try {
+              manualInfo = JSON.parse(manualStudentInfo);
+              console.log('📝 Loaded manual student info during login:', manualInfo);
+            } catch (e) {
+              console.warn('Failed to parse manual student info:', e);
+            }
+          }
+          
+          // Convert AdaptedStudent to Student type with all required fields
+          studentInfo = {
+            id: adaptedStudent.studentId || 'REAL_USER',
+            name: adaptedStudent.name || 'Student',
+            gradeLevel: adaptedStudent.gradeLevel || 'Loading...',
+            email: manualInfo.email || '',
+            phone: manualInfo.phone || '',
+            studentId: adaptedStudent.studentId || username,
+            schoolName: manualInfo.schoolName || adaptedStudent.schoolName || 'Loading...',
+            counselor: manualInfo.counselor || adaptedStudent.counselor || '',
+            parentName: manualInfo.parentName || '',
+            parentEmail: manualInfo.parentEmail || '',
+            parentPhone: manualInfo.parentPhone || '',
+            photo: adaptedStudent.photo || ''
+          };
+        } catch (studentError) {
+          console.warn('Failed to fetch student data, using placeholders:', studentError);
+          // Fallback to placeholder data
+          studentInfo = {
             id: 'REAL_USER',
-            name: 'Student', // Will be updated with real data
+            name: 'Student',
             gradeLevel: 'Loading...',
             email: '',
             phone: '',
@@ -92,10 +197,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             parentName: '',
             parentEmail: '',
             parentPhone: '',
-          }
+            photo: ''
+          };
+        }
+        
+        // Create user object for the UI
+        const user = {
+          username,
+          password,
+          studentInfo
         };
         
+        // Persist authentication session
+        const session = {
+          isValid: true,
+          password: password,
+          loginTime: new Date().toISOString(),
+          remember: remember
+        };
+        
+        // Store using required keys
+        localStorage.setItem('auth_session', JSON.stringify(session));
+        localStorage.setItem('auth_user', JSON.stringify(user));
+        localStorage.setItem('district_domain', districtUrl);
+        
+        // Also maintain backward compatibility
+        if (remember) {
+          localStorage.setItem('savedAuth', JSON.stringify(creds));
+        } else {
+          localStorage.removeItem('savedAuth');
+        }
+        
         setUser(user);
+        console.log('✅ Authentication successful and persisted');
         return true;
         
       } catch (error) {
@@ -111,7 +245,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     setCredentials(null);
-    localStorage.removeItem('savedAuth');
+    
+    // Clear all authentication storage
+    clearAuthStorage();
+    
+    // Clear grades cache on logout
+    localStorage.removeItem('gradely_grades_cache');
+    localStorage.removeItem('gradely_grades_cache_timestamp');
+    console.log('🗑️ All auth data and grades cache cleared on logout');
+    
+    // Navigate to landing page
+    window.history.pushState({}, '', '/');
     
     // Clear the student account from the global acc object
     import('../lib/account.svelte').then(({ acc }) => {
@@ -124,6 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         isAuthenticated: !!user,
+        isLoading,
         credentials,
         login,
         logout,

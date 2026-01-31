@@ -22,12 +22,11 @@ import {
   DialogTrigger,
 } from '@/app/components/ui/dialog';
 import { Label } from '@/app/components/ui/label';
-import { mockMessages } from '@/data/mockData';
 import { Message } from '@/types';
 import { toast } from 'sonner';
 
 export function MailPage() {
-  const [messages, setMessages] = useState(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [composeDialogOpen, setComposeDialogOpen] = useState(false);

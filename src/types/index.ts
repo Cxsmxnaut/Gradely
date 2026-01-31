@@ -10,6 +10,7 @@ export interface Student {
   parentName: string;
   parentEmail: string;
   parentPhone: string;
+  photo: string;
 }
 
 export interface Assignment {
@@ -22,6 +23,7 @@ export interface Assignment {
   dueDate: string;
   submittedDate?: string;
   isHypothetical?: boolean;
+  isNotGraded?: boolean;
 }
 
 export interface Course {

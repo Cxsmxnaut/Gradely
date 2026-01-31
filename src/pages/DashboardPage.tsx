@@ -5,10 +5,28 @@ import { useGrades } from '@/contexts/GradesContext';
 import { Progress } from '@/app/components/ui/progress';
 import { Button } from '@/app/components/ui/button';
 import { formatGPA, getGPAClassification } from '@/lib/gpaCalculator';
+import { fetchAttendance } from '@/adapters/dataService';
+import { useState, useEffect } from 'react';
+import { AttendanceRecord } from '@/types';
 
 export function DashboardPage() {
   const { user } = useAuth();
   const { courses, gpaResult, toggleWeightedGPA } = useGrades();
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+
+  // Fetch attendance data
+  useEffect(() => {
+    const loadAttendance = async () => {
+      try {
+        const attendanceData = await fetchAttendance();
+        setAttendance(attendanceData);
+      } catch (error) {
+        console.error('Failed to load attendance:', error);
+      }
+    };
+
+    loadAttendance();
+  }, []);
 
   // Use V3 GPA calculation from context
   const gpa = gpaResult ? formatGPA(gpaResult.useWeighted ? gpaResult.weightedGPA : gpaResult.unweightedGPA) : '0.00';
@@ -26,8 +44,29 @@ export function DashboardPage() {
     .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())
     .slice(0, 5);
 
-  // Calculate attendance rate
-  const attendanceRate = 95; // Mock value
+  // Calculate attendance rate from real data
+  // Group by unique dates and count attendance status per day
+  const uniqueDates = [...new Set(attendance.map(a => a.date))];
+  const totalDays = uniqueDates.length;
+  
+  // For each unique date, calculate the attendance rate for all periods that day
+  // Count each period individually for more accurate attendance calculation
+  const totalPeriods = attendance.length;
+  const presentPeriods = attendance.filter(record => 
+    record.status === 'Present' || 
+    record.status === 'Excused' || 
+    record.status === 'Tardy'
+  ).length;
+  
+  const attendanceRate = totalPeriods > 0 ? Math.round((presentPeriods / totalPeriods) * 100) : 0;
+  
+  console.log('🔍 Dashboard Attendance Debug:', {
+    totalDays,
+    totalPeriods,
+    presentPeriods,
+    attendanceRate,
+    attendanceData: attendance.slice(0, 3) // Show first 3 records
+  });
 
   return (
     <div className="space-y-6">
@@ -186,19 +225,23 @@ export function DashboardPage() {
                   <div className="text-right ml-4">
                     <div
                       className={`text-lg font-bold ${
-                        (assignment.score / assignment.maxScore) * 100 >= 90
-                          ? 'text-green-600'
-                          : (assignment.score / assignment.maxScore) * 100 >= 80
-                          ? 'text-blue-600'
-                          : (assignment.score / assignment.maxScore) * 100 >= 70
-                          ? 'text-yellow-600'
-                          : 'text-red-600'
+                        assignment.isNotGraded 
+                          ? 'text-neutral-500'
+                          : (assignment.score / assignment.maxScore) * 100 >= 90
+                            ? 'text-green-600'
+                            : (assignment.score / assignment.maxScore) * 100 >= 80
+                            ? 'text-blue-600'
+                            : (assignment.score / assignment.maxScore) * 100 >= 70
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
                       }`}
                     >
-                      {assignment.score}/{assignment.maxScore}
+                      {assignment.isNotGraded ? '—' : `${assignment.score}/${assignment.maxScore}`}
                     </div>
                     <div className="text-xs text-neutral-600 dark:text-neutral-400">
-                      {((assignment.score / assignment.maxScore) * 100).toFixed(0)}%
+                      {assignment.isNotGraded 
+                        ? 'Not Graded' 
+                        : ((assignment.score / assignment.maxScore) * 100).toFixed(0) + '%'}
                     </div>
                   </div>
                 </div>

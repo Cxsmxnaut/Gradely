@@ -403,12 +403,14 @@ export function GradesPage() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <div className="text-xl font-bold">
-                      {assignment.score}/{assignment.maxScore}
+                      {assignment.isNotGraded ? '—' : `${assignment.score}/${assignment.maxScore}`}
                     </div>
                     <div className="text-sm text-neutral-600 dark:text-neutral-400">
-                      {assignment.score !== undefined && assignment.maxScore !== undefined && assignment.maxScore > 0 
-                        ? ((assignment.score / assignment.maxScore) * 100).toFixed(1) 
-                        : 'N/A'}%
+                      {assignment.isNotGraded 
+                        ? 'Not Graded' 
+                        : assignment.score !== undefined && assignment.maxScore !== undefined && assignment.maxScore > 0 
+                          ? ((assignment.score / assignment.maxScore) * 100).toFixed(1) + '%'
+                          : 'N/A'}
                     </div>
                   </div>
                   {assignment.isHypothetical && (

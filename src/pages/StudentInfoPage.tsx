@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   User,
   Mail,
@@ -8,12 +7,20 @@ import {
   MapPin,
   Users,
   GraduationCap,
-  Clock,
+  Edit,
+  Save,
+  X,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
+import { Label } from '@/app/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGrades } from '@/contexts/GradesContext';
+import { calculateGPAV3 } from '@/lib/gpaCalculatorV3';
+import { formatGPA } from '@/lib/gpaCalculator';
+import { useState } from 'react';
 
 export function StudentInfoPage() {
   const { user } = useAuth();
@@ -22,6 +29,73 @@ export function StudentInfoPage() {
   if (!user) return null;
 
   const { studentInfo } = user;
+
+  // State for editing
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedInfo, setEditedInfo] = useState({
+    email: studentInfo.email || '',
+    phone: studentInfo.phone || '',
+    schoolName: studentInfo.schoolName || '',
+    counselor: studentInfo.counselor || '',
+    parentName: studentInfo.parentName || '',
+    parentEmail: studentInfo.parentEmail || '',
+    parentPhone: studentInfo.parentPhone || '',
+  });
+
+  // Debug: Log photo data
+  console.log('🔍 StudentInfoPage - Photo data:', {
+    hasPhoto: !!studentInfo.photo,
+    photoLength: studentInfo.photo?.length || 0,
+    photoPreview: studentInfo.photo ? studentInfo.photo.substring(0, 50) + '...' : 'No photo',
+    studentName: studentInfo.name
+  });
+
+  const handleEdit = () => {
+    setEditedInfo({
+      email: studentInfo.email || '',
+      phone: studentInfo.phone || '',
+      schoolName: studentInfo.schoolName || '',
+      counselor: studentInfo.counselor || '',
+      parentName: studentInfo.parentName || '',
+      parentEmail: studentInfo.parentEmail || '',
+      parentPhone: studentInfo.parentPhone || '',
+    });
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    // Save to localStorage
+    const updatedStudentInfo = {
+      ...studentInfo,
+      ...editedInfo
+    };
+    
+    // Update localStorage
+    localStorage.setItem('manual_student_info', JSON.stringify(updatedStudentInfo));
+    
+    // Update user state (this would ideally update the context)
+    console.log('💾 Saved student info:', updatedStudentInfo);
+    
+    setIsEditing(false);
+    
+    // Force a page refresh to see the changes
+    window.location.reload();
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setEditedInfo(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Calculate proper GPA using the V3 calculator
+  const gpaResult = calculateGPAV3(courses);
+  const currentGPA = gpaResult.useWeighted ? gpaResult.weightedGPA : gpaResult.unweightedGPA;
 
   return (
     <div className="space-y-6">
@@ -39,7 +113,20 @@ export function StudentInfoPage() {
           <div className="flex flex-col md:flex-row gap-6">
             {/* Avatar */}
             <div className="flex-shrink-0">
-              <div className="size-32 rounded-full bg-gradient-to-br from-primary to-blue-600 text-white flex items-center justify-center text-4xl font-bold">
+              {studentInfo.photo ? (
+                <img 
+                  src={studentInfo.photo} 
+                  alt={`${studentInfo.name}'s profile`}
+                  className="size-32 rounded-full object-cover border-4 border-white shadow-lg w-full h-full"
+                  style={{ objectFit: 'cover' }}
+                  onError={(e) => {
+                    // Fallback to default avatar if image fails to load
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <div className={`size-32 rounded-full bg-gradient-to-br from-primary to-blue-600 text-white flex items-center justify-center text-4xl font-bold ${studentInfo.photo ? 'hidden' : ''}`}>
                 {studentInfo.name
                   .split(' ')
                   .map((n) => n[0])
@@ -49,7 +136,18 @@ export function StudentInfoPage() {
 
             {/* Basic Info */}
             <div className="flex-1">
-              <h2 className="text-2xl font-bold mb-2">{studentInfo.name}</h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-2xl font-bold">{studentInfo.name}</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEdit}
+                  className="flex items-center gap-2"
+                >
+                  <Edit className="size-4" />
+                  Edit Profile
+                </Button>
+              </div>
               <div className="flex flex-wrap gap-2 mb-4">
                 <Badge variant="secondary" className="text-sm">
                   {studentInfo.gradeLevel}
@@ -159,10 +257,11 @@ export function StudentInfoPage() {
                   Current GPA
                 </p>
                 <p className="text-2xl font-bold text-primary">
-                  {(
-                    courses.reduce((sum, c) => sum + c.currentGrade, 0) /
-                    courses.length
-                  ).toFixed(2)}
+                  {formatGPA(currentGPA)}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {gpaResult.includedCourses} of {gpaResult.totalCourses} courses
+                  {gpaResult.excludedCourses > 0 && ` (${gpaResult.excludedCourses} excluded)`}
                 </p>
               </div>
               <div className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
@@ -219,10 +318,12 @@ export function StudentInfoPage() {
                   </div>
                   <div className="text-right">
                     <div className="text-2xl font-bold text-primary">
-                      {course.letterGrade}
+                      {course.letterGrade || 'N/A'}
                     </div>
                     <div className="text-sm text-neutral-600 dark:text-neutral-400">
-                      {course.currentGrade.toFixed(1)}%
+                      {course.currentGrade && course.currentGrade > 0 
+                        ? `${course.currentGrade.toFixed(1)}%` 
+                        : 'N/A'}
                     </div>
                   </div>
                 </div>
@@ -231,43 +332,97 @@ export function StudentInfoPage() {
         </CardContent>
       </Card>
 
-      {/* Additional Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Additional Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
-                Expected Graduation
-              </p>
-              <div className="flex items-center gap-2">
-                <Calendar className="size-4 text-primary" />
-                <p className="font-semibold">June 2027</p>
+      {/* Edit Profile Modal */}
+      {isEditing && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Edit Profile Information</CardTitle>
+              <Button variant="ghost" size="sm" onClick={handleCancel}>
+                <X className="size-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={editedInfo.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  placeholder="your.email@example.com"
+                />
               </div>
-            </div>
-            <div>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
-                School Year
-              </p>
-              <div className="flex items-center gap-2">
-                <Clock className="size-4 text-primary" />
-                <p className="font-semibold">2025-2026</p>
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={editedInfo.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  placeholder="(555) 123-4567"
+                />
               </div>
-            </div>
-            <div>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
-                Semester
-              </p>
-              <div className="flex items-center gap-2">
-                <GraduationCap className="size-4 text-primary" />
-                <p className="font-semibold">Spring 2026</p>
+              <div>
+                <Label htmlFor="schoolName">School Name</Label>
+                <Input
+                  id="schoolName"
+                  value={editedInfo.schoolName}
+                  onChange={(e) => handleInputChange('schoolName', e.target.value)}
+                  placeholder="Your School Name"
+                />
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              <div>
+                <Label htmlFor="counselor">Counselor</Label>
+                <Input
+                  id="counselor"
+                  value={editedInfo.counselor}
+                  onChange={(e) => handleInputChange('counselor', e.target.value)}
+                  placeholder="Counselor Name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="parentName">Parent/Guardian Name</Label>
+                <Input
+                  id="parentName"
+                  value={editedInfo.parentName}
+                  onChange={(e) => handleInputChange('parentName', e.target.value)}
+                  placeholder="Parent/Guardian Name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="parentEmail">Parent Email</Label>
+                <Input
+                  id="parentEmail"
+                  type="email"
+                  value={editedInfo.parentEmail}
+                  onChange={(e) => handleInputChange('parentEmail', e.target.value)}
+                  placeholder="parent@example.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="parentPhone">Parent Phone</Label>
+                <Input
+                  id="parentPhone"
+                  type="tel"
+                  value={editedInfo.parentPhone}
+                  onChange={(e) => handleInputChange('parentPhone', e.target.value)}
+                  placeholder="(555) 987-6543"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={handleCancel}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave}>
+                  <Save className="size-4 mr-2" />
+                  Save Changes
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

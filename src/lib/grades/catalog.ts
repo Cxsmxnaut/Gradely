@@ -12,6 +12,11 @@ interface GradebookRecord {
 	lastRefresh: number;
 }
 
+interface AttendanceRecord {
+	xml: string;
+	lastRefresh: number;
+}
+
 interface GradebookCatalogLocalStorageCache {
 	recordCache: (null | GradebookRecord)[];
 	defaultIndex: number;
@@ -58,7 +63,7 @@ export function saveGradebookCatalogToLocalStorage(gradebookCatalog: GradebookCa
 	localStorage.setItem(LocalStorageKey.GRADEBOOK, JSON.stringify(cache));
 }
 
-export async function getGradebookRecord(onReceivingData?: () => void, reportPeriod?: number) {
+export async function getAttendanceRecord(onReceivingData?: () => void) {
 	// Ensure student account is loaded from localStorage
 	if (!acc.studentAccount) {
 		loadStudentAccount();
@@ -66,9 +71,60 @@ export async function getGradebookRecord(onReceivingData?: () => void, reportPer
 	
 	const { studentAccount } = acc;
 	if (!studentAccount) {
+		throw new Error('Cannot get synergy attendance: student account not loaded');
+	}
+
+	// attendance() returns parsed data directly, not a Response
+	const attendanceData = await studentAccount.attendance();
+
+	onReceivingData?.();
+
+	// Convert the parsed data back to XML string for consistency
+	const record: AttendanceRecord = {
+		xml: JSON.stringify(attendanceData), // Store as JSON string since we already have parsed data
+		lastRefresh: Date.now()
+	};
+	return record;
+}
+
+export async function getGradebookRecord(onReceivingData?: () => void, reportPeriod?: number) {
+	// Ensure student account is loaded from localStorage
+	if (!acc.studentAccount) {
+		console.log('🔹 Student account not found, attempting to load from localStorage...');
+		loadStudentAccount();
+		
+		// Wait and retry multiple times with longer delays
+		let retries = 0;
+		const maxRetries = 5;
+		while (!acc.studentAccount && retries < maxRetries) {
+			console.log(`🔹 Waiting for student account initialization... attempt ${retries + 1}/${maxRetries}`);
+			await new Promise(resolve => setTimeout(resolve, 200 * (retries + 1)));
+			retries++;
+		}
+	}
+	
+	const { studentAccount } = acc;
+	if (!studentAccount) {
+		// Debug: Check if localStorage has auth data
+		const savedAuth = localStorage.getItem('savedAuth');
+		console.error('❌ Cannot get synergy gradebook: student account not loaded');
+		console.error('🔍 Debug - savedAuth exists:', !!savedAuth);
+		if (savedAuth) {
+			try {
+				const parsed = JSON.parse(savedAuth);
+				console.error('🔍 Debug - savedAuth structure:', {
+					hasDistrictUrl: !!parsed.districtUrl,
+					hasUsername: !!parsed.username,
+					hasPassword: !!parsed.password
+				});
+			} catch (e) {
+				console.error('🔍 Debug - savedAuth parse error:', e);
+			}
+		}
 		throw new Error('Cannot get synergy gradebook: student account not loaded');
 	}
 
+	console.log('✅ Student account loaded successfully, fetching gradebook...');
 	const res = await studentAccount.gradebookRequest(reportPeriod);
 
 	onReceivingData?.();
