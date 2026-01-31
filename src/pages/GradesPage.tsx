@@ -1,0 +1,432 @@
+import { useState } from 'react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from 'recharts';
+import { Plus, Trash2, TrendingUp, Target, AlertCircle } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { Button } from '@/app/components/ui/button';
+import { Switch } from '@/app/components/ui/switch';
+import { Label } from '@/app/components/ui/label';
+import { Badge } from '@/app/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/app/components/ui/dialog';
+import { Input } from '@/app/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
+import { useGrades } from '@/contexts/GradesContext';
+import { Course, Assignment } from '@/types';
+import { toast } from 'sonner';
+
+export function GradesPage() {
+  const {
+    courses,
+    isHypotheticalMode,
+    toggleHypotheticalMode,
+    addHypotheticalAssignment,
+    removeHypotheticalAssignment,
+    resetHypotheticalMode,
+  } = useGrades();
+
+  const [selectedCourse, setSelectedCourse] = useState<Course>(courses[0]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // New assignment form state
+  const [newAssignment, setNewAssignment] = useState({
+    name: '',
+    category: '',
+    score: '',
+    maxScore: '100',
+  });
+
+  // Generate chart data for selected course
+  const generateChartData = () => {
+    const data: { name: string; grade: number }[] = [];
+    let runningGrade = 0;
+    let count = 0;
+
+    selectedCourse.assignments.forEach((assignment, index) => {
+      count++;
+      const percentage = (assignment.score / assignment.maxScore) * 100;
+      runningGrade = ((runningGrade * (count - 1)) + percentage) / count;
+      
+      data.push({
+        name: `Assignment ${index + 1}`,
+        grade: parseFloat(runningGrade.toFixed(2)),
+      });
+    });
+
+    return data;
+  };
+
+  // Generate category breakdown
+  const generateCategoryData = () => {
+    const categoryTotals: Record<string, { earned: number; possible: number; weight: number }> = {};
+
+    if (!selectedCourse?.categoryWeights) {
+      return [];
+    }
+
+    Object.keys(selectedCourse.categoryWeights).forEach((category) => {
+      categoryTotals[category] = {
+        earned: 0,
+        possible: 0,
+        weight: selectedCourse.categoryWeights[category],
+      };
+    });
+
+    selectedCourse.assignments.forEach((assignment) => {
+      if (categoryTotals[assignment.category]) {
+        categoryTotals[assignment.category].earned += assignment.score;
+        categoryTotals[assignment.category].possible += assignment.maxScore;
+      }
+    });
+
+    return Object.entries(categoryTotals).map(([name, data]) => ({
+      name,
+      percentage: data.possible > 0 ? parseFloat(((data.earned / data.possible) * 100).toFixed(2)) : 0,
+      weight: data.weight,
+    }));
+  };
+
+  const handleAddHypotheticalAssignment = () => {
+    if (!newAssignment.name || !newAssignment.category || !newAssignment.score) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    const assignment: Assignment = {
+      id: `HYP-${Date.now()}`,
+      name: newAssignment.name,
+      category: newAssignment.category,
+      score: parseFloat(newAssignment.score),
+      maxScore: parseFloat(newAssignment.maxScore),
+      weight: selectedCourse.categoryWeights[newAssignment.category],
+      dueDate: new Date().toISOString().split('T')[0],
+      isHypothetical: true,
+    };
+
+    addHypotheticalAssignment(selectedCourse.id, assignment);
+    
+    // Update selected course
+    const updatedCourse = courses.find((c) => c.id === selectedCourse.id);
+    if (updatedCourse) {
+      setSelectedCourse(updatedCourse);
+    }
+
+    setNewAssignment({ name: '', category: '', score: '', maxScore: '100' });
+    setDialogOpen(false);
+    toast.success('Hypothetical assignment added!');
+  };
+
+  const handleRemoveAssignment = (assignmentId: string) => {
+    removeHypotheticalAssignment(selectedCourse.id, assignmentId);
+    
+    // Update selected course
+    const updatedCourse = courses.find((c) => c.id === selectedCourse.id);
+    if (updatedCourse) {
+      setSelectedCourse(updatedCourse);
+    }
+    
+    toast.success('Assignment removed');
+  };
+
+  const chartData = generateChartData();
+  const categoryData = generateCategoryData();
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Grades</h1>
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+            Track and predict your academic performance
+          </p>
+        </div>
+
+        {/* Hypothetical Mode Toggle */}
+        <Card className={`p-4 ${isHypotheticalMode ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/20' : ''}`}>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="hypothetical-mode"
+              checked={isHypotheticalMode}
+              onCheckedChange={toggleHypotheticalMode}
+            />
+            <div>
+              <Label htmlFor="hypothetical-mode" className="cursor-pointer font-semibold">
+                Hypothetical Mode
+              </Label>
+              <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                {isHypotheticalMode ? 'Active' : 'Inactive'}
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Hypothetical Mode Alert */}
+      {isHypotheticalMode && (
+        <Card className="border-purple-500 bg-purple-50 dark:bg-purple-950/20">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="size-5 text-purple-600 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-purple-900 dark:text-purple-100">
+                  Hypothetical Mode Active
+                </h3>
+                <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
+                  You can now add hypothetical assignments to see how they would affect your grade.
+                  Changes are not saved and will reset when you turn off this mode.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetHypotheticalMode}
+                  className="mt-3"
+                >
+                  Reset Changes
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Course Selector */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Select Course</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {courses.map((course) => (
+              <button
+                key={course.id}
+                onClick={() => setSelectedCourse(course)}
+                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                  selectedCourse.id === course.id
+                    ? 'border-primary bg-primary/5'
+                    : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
+                }`}
+              >
+                <h3 className="font-semibold text-sm">{course.name}</h3>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+                  {course.teacher}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-2xl font-bold text-primary">
+                    {course.letterGrade}
+                  </span>
+                  <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                    {course.currentGrade !== undefined ? course.currentGrade.toFixed(1) : 'N/A'}%
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Grade Progression Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="size-5" />
+              Grade Progression
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis domain={[0, 100]} />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="grade"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  name="Grade %"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Category Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="size-5" />
+              Category Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={categoryData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis domain={[0, 100]} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="percentage" fill="#8b5cf6" name="Score %" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Assignments List */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Assignments - {selectedCourse.name}</CardTitle>
+          {isHypotheticalMode && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="size-4 mr-2" />
+                  Add Hypothetical
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Hypothetical Assignment</DialogTitle>
+                  <DialogDescription>
+                    Add a hypothetical assignment to see how it would affect your grade.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <Label>Assignment Name</Label>
+                    <Input
+                      placeholder="e.g., Final Exam"
+                      value={newAssignment.name}
+                      onChange={(e) =>
+                        setNewAssignment({ ...newAssignment, name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Category</Label>
+                    <Select
+                      value={newAssignment.category}
+                      onValueChange={(value) =>
+                        setNewAssignment({ ...newAssignment, category: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.keys(selectedCourse.categoryWeights).map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category} ({selectedCourse.categoryWeights[category]}%)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Score</Label>
+                      <Input
+                        type="number"
+                        placeholder="e.g., 95"
+                        value={newAssignment.score}
+                        onChange={(e) =>
+                          setNewAssignment({ ...newAssignment, score: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Max Score</Label>
+                      <Input
+                        type="number"
+                        placeholder="e.g., 100"
+                        value={newAssignment.maxScore}
+                        onChange={(e) =>
+                          setNewAssignment({ ...newAssignment, maxScore: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <Button onClick={handleAddHypotheticalAssignment} className="w-full">
+                    Add Assignment
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {selectedCourse.assignments.map((assignment) => (
+              <div
+                key={assignment.id}
+                className={`flex items-center justify-between p-4 rounded-lg border ${
+                  assignment.isHypothetical
+                    ? 'border-purple-300 bg-purple-50 dark:bg-purple-950/20 dark:border-purple-700'
+                    : 'border-neutral-200 dark:border-neutral-800'
+                }`}
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">{assignment.name}</h3>
+                    {assignment.isHypothetical && (
+                      <Badge variant="secondary" className="text-xs">
+                        Hypothetical
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+                    {assignment.category} • Due: {new Date(assignment.dueDate).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <div className="text-xl font-bold">
+                      {assignment.score}/{assignment.maxScore}
+                    </div>
+                    <div className="text-sm text-neutral-600 dark:text-neutral-400">
+                      {assignment.score !== undefined && assignment.maxScore !== undefined && assignment.maxScore > 0 
+                        ? ((assignment.score / assignment.maxScore) * 100).toFixed(1) 
+                        : 'N/A'}%
+                    </div>
+                  </div>
+                  {assignment.isHypothetical && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveAssignment(assignment.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
