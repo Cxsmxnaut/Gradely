@@ -1,6 +1,6 @@
 import { TrendingUp, BookOpen, Target, Award, Settings } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
-import { useAuth } from '@/contexts/AuthContext';
+import { useGradelyAuth } from '@/contexts/GradelyAuthContext';
 import { useGrades } from '@/contexts/GradesContext';
 import { Progress } from '@/app/components/ui/progress';
 import { Button } from '@/app/components/ui/button';
@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { AttendanceRecord } from '@/types';
 
 export function DashboardPage() {
-  const { user } = useAuth();
+  const { user } = useGradelyAuth();
   const { courses, gpaResult, toggleWeightedGPA } = useGrades();
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
@@ -72,10 +72,10 @@ export function DashboardPage() {
     <div className="space-y-6">
       {/* Welcome Header */}
       <div>
-        <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
-          Welcome back, {user?.studentInfo.name.split(' ')[0]}!
+        <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-white">
+          Welcome back, {user?.user_metadata?.display_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Student'}!
         </h1>
-        <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+        <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mt-1">
           Here's your academic overview for today
         </p>
       </div>
@@ -94,8 +94,8 @@ export function DashboardPage() {
             <Award className="size-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-primary">{gpa}</div>
-            <div className="flex items-center justify-between mt-1">
+            <div className="text-2xl sm:text-3xl font-bold text-primary">{gpa}</div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-1">
               <p className={`text-xs ${gpaClassification.color}`}>
                 <TrendingUp className="size-3 inline mr-1" />
                 {gpaClassification.level}
@@ -130,7 +130,7 @@ export function DashboardPage() {
             <BookOpen className="size-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{totalCourses}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{totalCourses}</div>
             <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
               Active this semester
             </p>
@@ -146,7 +146,7 @@ export function DashboardPage() {
             <Target className="size-5 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{attendanceRate}%</div>
+            <div className="text-2xl sm:text-3xl font-bold">{attendanceRate}%</div>
             <Progress value={attendanceRate} className="mt-2" />
           </CardContent>
         </Card>
@@ -160,7 +160,7 @@ export function DashboardPage() {
             <TrendingUp className="size-5 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">On Track</div>
+            <div className="text-2xl sm:text-3xl font-bold">On Track</div>
             <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
               Meeting your goals
             </p>
@@ -179,16 +179,16 @@ export function DashboardPage() {
               {courses.map((course, index) => (
                 <div
                   key={course.id || `course-${index}`}
-                  className="flex items-center justify-between p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                  className="flex items-center justify-between p-3 sm:p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-sm">{course.name}</h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm truncate">{course.name}</h3>
                     <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
                       {course.teacher} • Period {course.period}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-primary">
+                  <div className="text-right ml-2 sm:ml-4">
+                    <div className="text-lg sm:text-2xl font-bold text-primary">
                       {course.letterGrade}
                     </div>
                     <div className="text-xs text-neutral-600 dark:text-neutral-400">
@@ -211,10 +211,10 @@ export function DashboardPage() {
               {recentAssignments.map((assignment, index) => (
                 <div
                   key={`${assignment.id || 'assignment'}-${assignment.courseName}-${index}`}
-                  className="flex items-start justify-between p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800"
+                  className="flex items-start justify-between p-3 sm:p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800"
                 >
-                  <div className="flex-1">
-                    <h3 className="font-medium text-sm">{assignment.name}</h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-sm truncate">{assignment.name}</h3>
                     <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
                       {assignment.courseName} • {assignment.category}
                     </p>
@@ -222,9 +222,9 @@ export function DashboardPage() {
                       Due: {new Date(assignment.dueDate).toLocaleDateString()}
                     </p>
                   </div>
-                  <div className="text-right ml-4">
+                  <div className="text-right ml-2 sm:ml-4 flex-shrink-0">
                     <div
-                      className={`text-lg font-bold ${
+                      className={`text-base sm:text-lg font-bold ${
                         assignment.isNotGraded 
                           ? 'text-neutral-500'
                           : (assignment.score / assignment.maxScore) * 100 >= 90

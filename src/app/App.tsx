@@ -6,7 +6,6 @@ import { GradelyAuthProvider, useGradelyAuth } from '@/contexts/GradelyAuthConte
 import { GradesProvider } from '@/contexts/GradesContext';
 import { AppLayout } from '@/components/AppLayout';
 import { LandingPage } from '@/pages/LandingPage';
-import { LoginPage } from '@/pages/LoginPage';
 import { GradelyLoginPage } from '@/pages/GradelyLoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { GradesPage } from '@/pages/GradesPage';
@@ -21,7 +20,8 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState(() => {
     const path = window.location.pathname;
     if (path === '/' || path === '/landing') return 'landing';
-    if (path === '/gradely-login') return 'gradely-login';
+    if (path === '/login') return 'login'; // Main login route now points to Gradely login
+    if (path === '/gradely-login') return 'login'; // Redirect old gradely-login to main login
     if (path.startsWith('/')) return path.slice(1);
     return 'dashboard';
   });
@@ -43,7 +43,9 @@ function AppContent() {
           setShowLandingPage(true);
         } else {
           setShowLandingPage(false);
-          const page = path.slice(1) || 'dashboard';
+          let page = path.slice(1) || 'dashboard';
+          // Handle route redirects
+          if (page === 'gradely-login') page = 'login'; // Redirect old route
           setCurrentPage(page);
         }
         setTimeout(() => setIsTransitioning(false), 1);
@@ -57,6 +59,8 @@ function AppContent() {
   const navigateToPage = (page: string) => {
     setIsTransitioning(true);
     setTimeout(() => {
+      // Handle route redirects
+      if (page === 'gradely-login') page = 'login'; // Redirect old route
       setCurrentPage(page);
       setShowLandingPage(false);
       window.history.pushState({}, '', `/${page}`);
@@ -81,8 +85,8 @@ function AppContent() {
     );
   }
 
-  // Show Gradely login page if specifically requested
-  if (currentPage === 'gradely-login') {
+  // Show Gradely login page for /login route
+  if (currentPage === 'login') {
     return (
       <div className={`transition-opacity duration-75 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
         <GradelyLoginPage />
@@ -91,9 +95,18 @@ function AppContent() {
   }
 
   if (!isAnyAuthenticated) {
+    // Show loading while checking authentication
+    if (isAnyLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      );
+    }
+    // Redirect to Gradely login if not authenticated
     return (
       <div className={`transition-opacity duration-75 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
-        <LoginPage />
+        <GradelyLoginPage />
       </div>
     );
   }

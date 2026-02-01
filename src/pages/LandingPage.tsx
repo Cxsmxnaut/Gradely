@@ -11,8 +11,8 @@ interface LandingPageProps {
 export function LandingPage({ onGetStarted }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-gray-950">
-      <Navbar onGetStarted={onGetStarted} />
-      <Hero onGetStarted={onGetStarted} />
+      <Navbar onGetStarted={() => window.location.href = '/login'} />
+      <Hero onGetStarted={() => window.location.href = '/login'} />
       <Features />
       <HowItWorks />
       <Footer />

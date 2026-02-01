@@ -254,8 +254,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('gradely_grades_cache_timestamp');
     console.log('🗑️ All auth data and grades cache cleared on logout');
     
-    // Navigate to landing page
-    window.history.pushState({}, '', '/');
+    // Navigate to Gradely login page
+    window.history.pushState({}, '', '/login');
     
     // Clear the student account from the global acc object
     import('../lib/account.svelte').then(({ acc }) => {

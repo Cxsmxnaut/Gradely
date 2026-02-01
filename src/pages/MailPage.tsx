@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Mail,
   MailOpen,
@@ -93,78 +93,81 @@ export function MailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Mail</h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold">Mail</h1>
+          <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mt-1">
             {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
           </p>
         </div>
-
-        <Dialog open={composeDialogOpen} onOpenChange={setComposeDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Send className="size-4 mr-2" />
-              Compose
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Compose Message</DialogTitle>
-              <DialogDescription>Send a new message to your teachers</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label>To</Label>
-                <Input
-                  placeholder="Recipient email or name"
-                  value={newMessage.to}
-                  onChange={(e) =>
-                    setNewMessage({ ...newMessage, to: e.target.value })
-                  }
-                />
+        
+        {/* Compose Button */}
+        <div className="flex justify-start">
+          <Dialog open={composeDialogOpen} onOpenChange={setComposeDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Send className="size-4 mr-2" />
+                Compose
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Compose Message</DialogTitle>
+                <DialogDescription>Send a new message to your teachers</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 mt-4">
+                <div>
+                  <Label>To</Label>
+                  <Input
+                    placeholder="Recipient email or name"
+                    value={newMessage.to}
+                    onChange={(e) =>
+                      setNewMessage({ ...newMessage, to: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Subject</Label>
+                  <Input
+                    placeholder="Message subject"
+                    value={newMessage.subject}
+                    onChange={(e) =>
+                      setNewMessage({ ...newMessage, subject: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Message</Label>
+                  <Textarea
+                    placeholder="Type your message here..."
+                    value={newMessage.body}
+                    onChange={(e) =>
+                      setNewMessage({ ...newMessage, body: e.target.value })
+                    }
+                    rows={8}
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setComposeDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSendMessage}>
+                    <Send className="size-4 mr-2" />
+                    Send Message
+                  </Button>
+                </div>
               </div>
-              <div>
-                <Label>Subject</Label>
-                <Input
-                  placeholder="Message subject"
-                  value={newMessage.subject}
-                  onChange={(e) =>
-                    setNewMessage({ ...newMessage, subject: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label>Message</Label>
-                <Textarea
-                  placeholder="Type your message here..."
-                  value={newMessage.body}
-                  onChange={(e) =>
-                    setNewMessage({ ...newMessage, body: e.target.value })
-                  }
-                  rows={8}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setComposeDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleSendMessage}>
-                  <Send className="size-4 mr-2" />
-                  Send Message
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Inbox List */}
-        <Card className="lg:col-span-1">
+        <Card className={`${selectedMessage ? 'hidden lg:block' : 'block'} lg:col-span-1`}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Inbox className="size-5" />
@@ -194,21 +197,21 @@ export function MailPage() {
                   } ${!message.read ? 'bg-blue-50 dark:bg-blue-950/20' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       {message.read ? (
-                        <MailOpen className="size-4 text-neutral-400" />
+                        <MailOpen className="size-4 text-neutral-400 flex-shrink-0" />
                       ) : (
-                        <Mail className="size-4 text-primary" />
+                        <Mail className="size-4 text-primary flex-shrink-0" />
                       )}
                       <span
-                        className={`text-sm ${
+                        className={`text-sm truncate ${
                           !message.read ? 'font-semibold' : 'font-medium'
                         }`}
                       >
                         {message.from}
                       </span>
                     </div>
-                    <span className="text-xs text-neutral-500 whitespace-nowrap">
+                    <span className="text-xs text-neutral-500 whitespace-nowrap flex-shrink-0">
                       {formatDate(message.date)}
                     </span>
                   </div>
@@ -246,17 +249,17 @@ export function MailPage() {
         </Card>
 
         {/* Message Content */}
-        <Card className="lg:col-span-2">
+        <Card className={`${selectedMessage ? 'block' : 'hidden lg:block'} lg:col-span-2`}>
           <CardContent className="pt-6">
             {selectedMessage ? (
               <div>
-                {/* Message Header */}
-                <div className="flex items-start justify-between mb-6">
+                {/* Mobile Back Button */}
+                <div className="flex items-center justify-between mb-6">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setSelectedMessage(null)}
-                    className="lg:hidden mb-4"
+                    className="lg:hidden"
                   >
                     <ArrowLeft className="size-4 mr-2" />
                     Back to Inbox
@@ -265,38 +268,35 @@ export function MailPage() {
 
                 <div className="space-y-4">
                   {/* Subject */}
-                  <h2 className="text-2xl font-bold">{selectedMessage.subject}</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold">{selectedMessage.subject}</h2>
 
                   {/* From/Date Info */}
-                  <div className="flex items-center justify-between py-4 border-y border-neutral-200 dark:border-neutral-800">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <div className="size-10 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
-                          {selectedMessage.from.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-semibold">{selectedMessage.from}</p>
-                          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                            {new Date(selectedMessage.date).toLocaleDateString('en-US', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                              hour: 'numeric',
-                              minute: '2-digit',
-                            })}
-                          </p>
-                        </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-4 border-y border-neutral-200 dark:border-neutral-800">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-full bg-primary text-white flex items-center justify-center font-semibold flex-shrink-0">
+                        {selectedMessage.from.charAt(0)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm sm:text-base truncate">{selectedMessage.from}</p>
+                        <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
+                          {new Date(selectedMessage.date).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                        </p>
                       </div>
                     </div>
                     {!selectedMessage.read && (
-                      <Badge variant="secondary">New</Badge>
+                      <Badge variant="secondary" className="w-fit">New</Badge>
                     )}
                   </div>
 
                   {/* Message Body */}
                   <div className="prose dark:prose-invert max-w-none py-6">
-                    <p className="whitespace-pre-wrap">{selectedMessage.body}</p>
+                    <p className="whitespace-pre-wrap text-sm sm:text-base">{selectedMessage.body}</p>
                   </div>
 
                   {/* Attachments */}
@@ -310,12 +310,12 @@ export function MailPage() {
                         {selectedMessage.attachments.map((attachment) => (
                           <div
                             key={attachment.id}
-                            className="flex items-center justify-between p-3 rounded-lg border border-neutral-200 dark:border-neutral-800"
+                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border border-neutral-200 dark:border-neutral-800 gap-3"
                           >
-                            <div className="flex items-center gap-3">
-                              <Paperclip className="size-5 text-neutral-500" />
-                              <div>
-                                <p className="font-medium text-sm">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <Paperclip className="size-5 text-neutral-500 flex-shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-sm truncate">
                                   {attachment.name}
                                 </p>
                                 <p className="text-xs text-neutral-600 dark:text-neutral-400">
@@ -323,7 +323,7 @@ export function MailPage() {
                                 </p>
                               </div>
                             </div>
-                            <Button size="sm" variant="ghost">
+                            <Button size="sm" variant="ghost" className="w-full sm:w-fit">
                               Download
                             </Button>
                           </div>

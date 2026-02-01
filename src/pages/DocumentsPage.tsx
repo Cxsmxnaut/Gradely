@@ -26,6 +26,8 @@ export function DocumentsPage() {
         setDocuments(documentsData);
       } catch (error) {
         console.error('Failed to load documents:', error);
+        // Set empty array as fallback since fetchDocuments is not implemented yet
+        setDocuments([]);
       }
     };
 
@@ -58,8 +60,8 @@ export function DocumentsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Documents</h1>
-        <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+        <h1 className="text-2xl sm:text-3xl font-bold">Documents</h1>
+        <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mt-1">
           Access your reports, transcripts, and other important documents
         </p>
       </div>

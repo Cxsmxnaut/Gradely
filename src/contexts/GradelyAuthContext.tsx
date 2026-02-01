@@ -1,213 +1,116 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { User, Session } from '@supabase/supabase-js';
 
-interface GradelyUser {
-  id: string;
-  email: string;
-  username: string;
-  displayName: string;
-  createdAt: string;
-  lastLogin: string;
-}
-
-interface GradelySession {
-  userId: string;
-  username: string;
-  email: string;
-  displayName: string;
-  loginTime: string;
-  isGradelyUser: boolean;
-}
 
 interface GradelyAuthContextType {
-  user: GradelyUser | null;
-  session: GradelySession | null;
+  user: User | null;
+  session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
-  signup: (email: string, username: string, password: string, displayName: string) => Promise<boolean>;
-  logout: () => void;
-  updateUser: (updates: Partial<GradelyUser>) => void;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, displayName: string, dateOfBirth: string, phoneNumber: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const GradelyAuthContext = createContext<GradelyAuthContextType | undefined>(undefined);
 
 export function GradelyAuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<GradelyUser | null>(null);
-  const [session, setSession] = useState<GradelySession | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const restoreSession = () => {
+    // Get initial session
+    const getInitialSession = async () => {
       try {
-        // Check for existing Gradely session
-        const storedSession = localStorage.getItem('gradely_session');
-        const storedUser = localStorage.getItem('gradely_current_user');
-
-        if (storedSession && storedUser) {
-          const sessionData = JSON.parse(storedSession);
-          const userData = JSON.parse(storedUser);
-
-          // Validate session is still valid (basic check)
-          if (sessionData.isGradelyUser && userData.id === sessionData.userId) {
-            setSession(sessionData);
-            setUser(userData);
-            console.log('✅ Gradely session restored successfully');
-          } else {
-            console.warn('🔹 Invalid Gradely session data, clearing storage');
-            clearGradelyAuth();
-          }
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
         } else {
-          console.log('🔹 No existing Gradely session found');
+          setSession(session);
+          setUser(session?.user ?? null);
         }
       } catch (error) {
-        console.warn('Failed to restore Gradely authentication:', error);
-        clearGradelyAuth();
+        console.error('Error getting initial session:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    restoreSession();
+    getInitialSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session);
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const clearGradelyAuth = () => {
-    localStorage.removeItem('gradely_session');
-    localStorage.removeItem('gradely_current_user');
-    setUser(null);
-    setSession(null);
-  };
-
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<void> => {
     try {
-      // Get existing users
-      const existingUsers = JSON.parse(localStorage.getItem('gradely_users') || '{}');
-      
-      // Find user by username or email
-      const foundUser = Object.values(existingUsers).find((u: any) => 
-        u.username === username || u.email === username
-      );
-
-      if (!foundUser) {
-        throw new Error('Invalid username/email or password');
-      }
-
-      const userData = foundUser as GradelyUser;
-      
-      // Create session
-      const sessionData: GradelySession = {
-        userId: userData.id,
-        username: userData.username,
-        email: userData.email,
-        displayName: userData.displayName,
-        loginTime: new Date().toISOString(),
-        isGradelyUser: true
-      };
-
-      // Store session and user data
-      localStorage.setItem('gradely_session', JSON.stringify(sessionData));
-      localStorage.setItem('gradely_current_user', JSON.stringify(userData));
-
-      // Update state
-      setSession(sessionData);
-      setUser(userData);
-
-      // Update last login
-      const updatedUser = {
-        ...userData,
-        lastLogin: new Date().toISOString()
-      };
-      
-      const updatedUsers = { ...existingUsers };
-      updatedUsers[userData.id] = updatedUser;
-      localStorage.setItem('gradely_users', JSON.stringify(updatedUsers));
-      setUser(updatedUser);
-
-      console.log('✅ Gradely login successful');
-      return true;
-    } catch (error) {
-      console.error('Gradely login failed:', error);
-      throw error;
-    }
-  };
-
-  const signup = async (email: string, username: string, password: string, displayName: string): Promise<boolean> => {
-    try {
-      // Get existing users
-      const existingUsers = JSON.parse(localStorage.getItem('gradely_users') || '{}');
-      
-      // Check if username or email already exists
-      const userExists = Object.values(existingUsers).some((u: any) => 
-        u.username === username || u.email === email
-      );
-
-      if (userExists) {
-        throw new Error('Username or email already exists');
-      }
-
-      // Create new user
-      const newUser: GradelyUser = {
-        id: 'gradely_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        username,
-        displayName,
-        createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString()
-      };
+        password,
+      });
 
-      // Store user (in a real app, we'd hash the password)
-      existingUsers[newUser.id] = newUser;
-      localStorage.setItem('gradely_users', JSON.stringify(existingUsers));
+      if (error) {
+        throw error;
+      }
 
-      // Create session
-      const sessionData: GradelySession = {
-        userId: newUser.id,
-        username: newUser.username,
-        email: newUser.email,
-        displayName: newUser.displayName,
-        loginTime: new Date().toISOString(),
-        isGradelyUser: true
-      };
-
-      // Store session and user data
-      localStorage.setItem('gradely_session', JSON.stringify(sessionData));
-      localStorage.setItem('gradely_current_user', JSON.stringify(newUser));
-
-      // Update state
-      setSession(sessionData);
-      setUser(newUser);
-
-      console.log('✅ Gradely signup successful');
-      return true;
+      console.log('Login successful:', data);
     } catch (error) {
-      console.error('Gradely signup failed:', error);
+      console.error('Login failed:', error);
       throw error;
     }
   };
 
-  const logout = () => {
-    console.log('🔹 Logging out from Gradely');
-    clearGradelyAuth();
-    
-    // Navigate to login page
-    window.location.href = '/gradely-login';
+  const signup = async (email: string, password: string, displayName: string, dateOfBirth: string, phoneNumber: string): Promise<void> => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            display_name: displayName,
+            date_of_birth: dateOfBirth,
+            phone_number: phoneNumber,
+          },
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('Signup successful:', data);
+    } catch (error) {
+      console.error('Signup failed:', error);
+      throw error;
+    }
   };
 
-  const updateUser = (updates: Partial<GradelyUser>) => {
-    if (!user) return;
-
-    const updatedUser = { ...user, ...updates };
-    
-    // Update in users storage
-    const existingUsers = JSON.parse(localStorage.getItem('gradely_users') || '{}');
-    existingUsers[updatedUser.id] = updatedUser;
-    localStorage.setItem('gradely_users', JSON.stringify(existingUsers));
-
-    // Update current user storage
-    localStorage.setItem('gradely_current_user', JSON.stringify(updatedUser));
-
-    // Update state
-    setUser(updatedUser);
-    console.log('✅ Gradely user updated:', updatedUser);
+  const logout = async (): Promise<void> => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Logout error:', error);
+      } else {
+        console.log('Logout successful');
+        // Navigate to login page
+        window.location.href = '/login';
+      }
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   return (
@@ -220,7 +123,6 @@ export function GradelyAuthProvider({ children }: { children: React.ReactNode })
         login,
         signup,
         logout,
-        updateUser
       }}
     >
       {children}

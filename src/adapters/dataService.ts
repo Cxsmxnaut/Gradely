@@ -102,9 +102,10 @@ export async function fetchDocuments() {
   try {
     console.log('🔹 Fetching real documents data');
     // TODO: Implement documents fetching from backend
-    throw new Error('Documents fetching not implemented yet');
+    // Return empty array for now since it's not implemented
+    return [];
   } catch (error) {
     console.error('Failed to fetch documents:', error);
-    throw error;
+    return [];
   }
 }

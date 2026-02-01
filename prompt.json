@@ -1,0 +1,48 @@
+{
+  "role": "feature_planner",
+  "task": "Implement user name system with StudentVUE override",
+  "description": "Add user name handling to Gradely with a fallback system: collect name at signup, allow manual editing in User Profile, and automatically replace it with the legal name from StudentVUE once a gradebook is linked.",
+  "objectives": [
+    "Add a full name field (first + last, or display name) to the Gradely signup page",
+    "Persist the signup name in Gradely user profile storage",
+    "Allow the user to view and edit their name in the User / Student Info page",
+    "When a StudentVUE account is linked, automatically pull the legal name from StudentVUE",
+    "Override the display name with the StudentVUE legal name once linked",
+    "Keep the signup name as a fallback if StudentVUE is not linked or name is unavailable"
+  ],
+  "data_rules": {
+    "priority_order": [
+      "StudentVUE legal name (highest priority)",
+      "Gradely signup name (fallback)"
+    ],
+    "do_not_delete": [
+      "Signup name after StudentVUE link"
+    ]
+  },
+  "ui_requirements": [
+    "Keep the existing Gradely login/signup page style exactly the same",
+    "Add name input without redesigning layout",
+    "Show name in User / Student Info page with clear edit capability",
+    "Indicate when name is sourced from StudentVUE (read-only or labeled)"
+  ],
+  "constraints": {
+    "do_not": [
+      "Break existing authentication",
+      "Change StudentVUE API behavior",
+      "Require StudentVUE to create a Gradely account"
+    ],
+    "only_add": [
+      "Name fields",
+      "Profile persistence logic",
+      "StudentVUE name override logic"
+    ]
+  },
+  "definition_of_done": [
+    "User is asked for their name during Gradely signup",
+    "Name persists across refresh and login",
+    "User can edit name before StudentVUE is linked",
+    "StudentVUE legal name replaces display name once linked",
+    "Fallback name is used if StudentVUE is not linked",
+    "No console errors or regressions"
+  ]
+}

@@ -10,29 +10,56 @@ import {
   Edit,
   Save,
   X,
+  Link,
+  Eye,
+  EyeOff,
+  Info,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
+import { Checkbox } from '@/app/components/ui/checkbox';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGradelyAuth } from '@/contexts/GradelyAuthContext';
 import { useGrades } from '@/contexts/GradesContext';
 import { calculateGPAV3 } from '@/lib/gpaCalculatorV3';
 import { formatGPA } from '@/lib/gpaCalculator';
+import { toast } from 'sonner';
 import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export function StudentInfoPage() {
-  const { user } = useAuth();
+  const { user, login: studentVueLogin } = useAuth();
+  const { user: gradelyUser } = useGradelyAuth();
   const { courses } = useGrades();
 
-  if (!user) return null;
+  // Use Gradely user if available, fallback to old auth
+  const currentUser = gradelyUser || user;
+  
+  if (!currentUser) return null;
 
-  const { studentInfo } = user;
+  // For Gradely users, get info from user_metadata, for old auth use studentInfo
+  const studentInfo = gradelyUser ? {
+    email: gradelyUser.email || '',
+    name: gradelyUser.user_metadata?.display_name || gradelyUser.email || '',
+    gradeLevel: 'Not specified',
+    schoolName: 'Not specified',
+    counselor: 'Not specified',
+    parentName: 'Not specified',
+    parentEmail: 'Not specified',
+    parentPhone: 'Not specified',
+    phone: gradelyUser.user_metadata?.phone_number || '',
+    photo: null,
+    studentId: gradelyUser.id || '',
+  } : user?.studentInfo || {};
 
   // State for editing
   const [isEditing, setIsEditing] = useState(false);
+  const [showLinkStudentVue, setShowLinkStudentVue] = useState(false);
   const [editedInfo, setEditedInfo] = useState({
+    name: studentInfo.name || '',
     email: studentInfo.email || '',
     phone: studentInfo.phone || '',
     schoolName: studentInfo.schoolName || '',
@@ -42,6 +69,17 @@ export function StudentInfoPage() {
     parentPhone: studentInfo.parentPhone || '',
   });
 
+  // StudentVUE linking form state
+  const [studentVueForm, setStudentVueForm] = useState({
+    districtUrl: '',
+    username: '',
+    password: '',
+    remember: false,
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showDomainHelper, setShowDomainHelper] = useState(false);
+  const [isLinking, setIsLinking] = useState(false);
+
   // Debug: Log photo data
   console.log('🔍 StudentInfoPage - Photo data:', {
     hasPhoto: !!studentInfo.photo,
@@ -50,8 +88,34 @@ export function StudentInfoPage() {
     studentName: studentInfo.name
   });
 
+  const handleSave = async () => {
+    try {
+      if (gradelyUser && editedInfo.name !== studentInfo.name) {
+        // Update user metadata in Supabase
+        const { error } = await supabase.auth.updateUser({
+          data: {
+            display_name: editedInfo.name,
+          },
+        });
+
+        if (error) {
+          toast.error('Failed to update name');
+          console.error('Update error:', error);
+          return;
+        }
+
+        toast.success('Name updated successfully!');
+      }
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Save error:', error);
+      toast.error('Failed to save changes');
+    }
+  };
+
   const handleEdit = () => {
     setEditedInfo({
+      name: studentInfo.name || '',
       email: studentInfo.email || '',
       phone: studentInfo.phone || '',
       schoolName: studentInfo.schoolName || '',
@@ -61,25 +125,6 @@ export function StudentInfoPage() {
       parentPhone: studentInfo.parentPhone || '',
     });
     setIsEditing(true);
-  };
-
-  const handleSave = () => {
-    // Save to localStorage
-    const updatedStudentInfo = {
-      ...studentInfo,
-      ...editedInfo
-    };
-    
-    // Update localStorage
-    localStorage.setItem('manual_student_info', JSON.stringify(updatedStudentInfo));
-    
-    // Update user state (this would ideally update the context)
-    console.log('💾 Saved student info:', updatedStudentInfo);
-    
-    setIsEditing(false);
-    
-    // Force a page refresh to see the changes
-    window.location.reload();
   };
 
   const handleCancel = () => {
@@ -93,6 +138,90 @@ export function StudentInfoPage() {
     }));
   };
 
+  // StudentVUE linking functions
+  const handleStudentVueInputChange = (field: string, value: string | boolean) => {
+    setStudentVueForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const shortenDomainUrl = (url: string): string => {
+    try {
+      let cleanUrl = url.replace(/^https?:\/\//, '');
+      const domainMatch = cleanUrl.match(/^([^\/]+)/);
+      if (domainMatch) {
+        cleanUrl = domainMatch[1];
+      }
+      
+      const pathsToRemove = [
+        '/PXP2_Login_Student.aspx',
+        '/PXP_Login_Student.aspx',
+        '/Home/Portal',
+        '/StudentPortal',
+        '/Portal',
+        '/Home',
+      ];
+      
+      pathsToRemove.forEach(path => {
+        cleanUrl = cleanUrl.replace(path, '');
+      });
+      
+      cleanUrl = cleanUrl.replace(/\/+$/, '');
+      return cleanUrl;
+    } catch (error) {
+      console.error('Error shortening URL:', error);
+      return url;
+    }
+  };
+
+  const handleStudentVueUrlChange = (value: string) => {
+    if (value.includes('http') && value.includes('/')) {
+      const shortened = shortenDomainUrl(value);
+      setStudentVueForm(prev => ({ ...prev, districtUrl: shortened }));
+    } else {
+      setStudentVueForm(prev => ({ ...prev, districtUrl: value }));
+    }
+  };
+
+  const handleLinkStudentVue = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!studentVueForm.districtUrl || !studentVueForm.username || !studentVueForm.password) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    if (!studentVueForm.districtUrl.includes('.edupoint.com') && !studentVueForm.districtUrl.includes('.edupoint.org')) {
+      toast.error('Please enter a valid Edupoint district URL');
+      return;
+    }
+
+    setIsLinking(true);
+    
+    try {
+      const success = await studentVueLogin(
+        studentVueForm.districtUrl,
+        studentVueForm.username,
+        studentVueForm.password,
+        studentVueForm.remember
+      );
+      
+      if (success) {
+        toast.success('StudentVUE account linked successfully!');
+        setShowLinkStudentVue(false);
+        // Refresh the page to show updated student data
+        window.location.reload();
+      } else {
+        toast.error('Failed to link StudentVUE account. Please check your credentials.');
+      }
+    } catch (error) {
+      toast.error('Failed to link StudentVUE account. Please try again.');
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
   // Calculate proper GPA using the V3 calculator
   const gpaResult = calculateGPAV3(courses);
   const currentGPA = gpaResult.useWeighted ? gpaResult.weightedGPA : gpaResult.unweightedGPA;
@@ -101,8 +230,8 @@ export function StudentInfoPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Student Information</h1>
-        <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+        <h1 className="text-2xl sm:text-3xl font-bold">Student Information</h1>
+        <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mt-1">
           Your personal and academic information
         </p>
       </div>
@@ -110,45 +239,91 @@ export function StudentInfoPage() {
       {/* Profile Card */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-6">
+          <div className="flex flex-col gap-6">
             {/* Avatar */}
-            <div className="flex-shrink-0">
-              {studentInfo.photo ? (
-                <img 
-                  src={studentInfo.photo} 
-                  alt={`${studentInfo.name}'s profile`}
-                  className="size-32 rounded-full object-cover border-4 border-white shadow-lg w-full h-full"
-                  style={{ objectFit: 'cover' }}
-                  onError={(e) => {
-                    // Fallback to default avatar if image fails to load
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                  }}
-                />
-              ) : null}
-              <div className={`size-32 rounded-full bg-gradient-to-br from-primary to-blue-600 text-white flex items-center justify-center text-4xl font-bold ${studentInfo.photo ? 'hidden' : ''}`}>
-                {studentInfo.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')}
+            <div className="flex justify-center">
+              <div className="relative">
+                {studentInfo.photo ? (
+                  <img 
+                    src={studentInfo.photo} 
+                    alt={`${studentInfo.name}'s profile`}
+                    className="size-24 sm:size-32 rounded-full object-cover border-4 border-white shadow-lg"
+                    style={{ objectFit: 'cover' }}
+                    onError={(e) => {
+                      // Fallback to default avatar if image fails to load
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <div className={`size-24 sm:size-32 rounded-full bg-gradient-to-br from-primary to-blue-600 text-white flex items-center justify-center text-3xl sm:text-4xl font-bold ${studentInfo.photo ? 'hidden' : ''}`}>
+                  {studentInfo.name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')}
+                </div>
               </div>
             </div>
 
             {/* Basic Info */}
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-2xl font-bold">{studentInfo.name}</h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleEdit}
-                  className="flex items-center gap-2"
-                >
-                  <Edit className="size-4" />
-                  Edit Profile
-                </Button>
+            <div className="text-center sm:text-left">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
+                {isEditing ? (
+                  <Input
+                    value={editedInfo.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    className="text-xl sm:text-2xl font-bold"
+                    placeholder="Full Name"
+                  />
+                ) : (
+                  <h2 className="text-xl sm:text-2xl font-bold truncate">{studentInfo.name}</h2>
+                )}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  {isEditing ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancel}
+                        className="flex items-center gap-2 w-full sm:w-fit"
+                      >
+                        <X className="size-4" />
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSave}
+                        className="flex items-center gap-2 w-full sm:w-fit"
+                      >
+                        <Save className="size-4" />
+                        Save
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowLinkStudentVue(true)}
+                        className="flex items-center gap-2 w-full sm:w-fit"
+                      >
+                        <Link className="size-4" />
+                        Link StudentVUE
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleEdit}
+                        className="flex items-center gap-2 w-full sm:w-fit"
+                      >
+                        <Edit className="size-4" />
+                        Edit Profile
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap gap-2 mb-4 justify-center sm:justify-start">
                 <Badge variant="secondary" className="text-sm">
                   {studentInfo.gradeLevel}
                 </Badge>
@@ -159,50 +334,50 @@ export function StudentInfoPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                 <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-full bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center">
+                  <div className="size-10 rounded-full bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center flex-shrink-0">
                     <Mail className="size-5 text-blue-600" />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs text-neutral-600 dark:text-neutral-400">
                       Email
                     </p>
-                    <p className="font-medium">{studentInfo.email}</p>
+                    <p className="font-medium text-sm truncate">{studentInfo.email}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-full bg-green-50 dark:bg-green-950/20 flex items-center justify-center">
+                  <div className="size-10 rounded-full bg-green-50 dark:bg-green-950/20 flex items-center justify-center flex-shrink-0">
                     <Phone className="size-5 text-green-600" />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs text-neutral-600 dark:text-neutral-400">
                       Phone
                     </p>
-                    <p className="font-medium">{studentInfo.phone}</p>
+                    <p className="font-medium text-sm truncate">{studentInfo.phone}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-full bg-purple-50 dark:bg-purple-950/20 flex items-center justify-center">
+                  <div className="size-10 rounded-full bg-purple-50 dark:bg-purple-950/20 flex items-center justify-center flex-shrink-0">
                     <School className="size-5 text-purple-600" />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs text-neutral-600 dark:text-neutral-400">
                       School
                     </p>
-                    <p className="font-medium">{studentInfo.schoolName}</p>
+                    <p className="font-medium text-sm truncate">{studentInfo.schoolName}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-full bg-orange-50 dark:bg-orange-950/20 flex items-center justify-center">
+                  <div className="size-10 rounded-full bg-orange-50 dark:bg-orange-950/20 flex items-center justify-center flex-shrink-0">
                     <Users className="size-5 text-orange-600" />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs text-neutral-600 dark:text-neutral-400">
                       Counselor
                     </p>
-                    <p className="font-medium">{studentInfo.counselor}</p>
+                    <p className="font-medium text-sm truncate">{studentInfo.counselor}</p>
                   </div>
                 </div>
               </div>
@@ -419,6 +594,123 @@ export function StudentInfoPage() {
                   Save Changes
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Link StudentVUE Modal */}
+      {showLinkStudentVue && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Link className="size-5" />
+                Link StudentVUE Account
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowLinkStudentVue(false)}>
+                <X className="size-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                Connect your StudentVUE account to automatically import your grades and attendance data.
+              </p>
+              
+              <form onSubmit={handleLinkStudentVue} className="space-y-4">
+                {/* District URL */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="districtUrl">District URL</Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowDomainHelper(!showDomainHelper)}
+                      className="text-xs text-[#60a6fa] hover:text-[#4d8ce8] underline flex items-center gap-1"
+                    >
+                      <Info className="size-3" />
+                      Help
+                    </button>
+                  </div>
+                  
+                  {showDomainHelper && (
+                    <div className="p-3 bg-[#60a6fa]/10 dark:bg-[#60a6fa]/10 rounded-lg border border-[#60a6fa]/30 dark:border-[#60a6fa]/30 mb-3">
+                      <p className="text-sm text-[#60a6fa] dark:text-[#60a6fa]">
+                        Paste any link from your StudentVUE website below, and it will automatically shorten it.
+                      </p>
+                    </div>
+                  )}
+                  
+                  <Input
+                    id="districtUrl"
+                    type="text"
+                    placeholder="[your-district]-psv.edupoint.com"
+                    value={studentVueForm.districtUrl}
+                    onChange={(e) => handleStudentVueUrlChange(e.target.value)}
+                  />
+                </div>
+
+                {/* Username */}
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="Enter your StudentVUE username"
+                    value={studentVueForm.username}
+                    onChange={(e) => handleStudentVueInputChange('username', e.target.value)}
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Enter your StudentVUE password"
+                      value={studentVueForm.password}
+                      onChange={(e) => handleStudentVueInputChange('password', e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="size-4" />
+                      ) : (
+                        <Eye className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Remember Me */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember"
+                    checked={studentVueForm.remember}
+                    onCheckedChange={(checked) => handleStudentVueInputChange('remember', checked as boolean)}
+                  />
+                  <label
+                    htmlFor="remember"
+                    className="text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer"
+                  >
+                    Remember credentials
+                  </label>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button variant="outline" onClick={() => setShowLinkStudentVue(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLinking}>
+                    {isLinking ? 'Linking...' : 'Link Account'}
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </div>

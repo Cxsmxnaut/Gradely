@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/app/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
+import { useGradelyAuth } from '@/contexts/GradelyAuthContext';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -25,7 +25,7 @@ interface AppLayoutProps {
 export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { theme, setTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout } = useGradelyAuth();
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -49,7 +49,7 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
           <div className="p-6 border-b border-neutral-200 dark:border-neutral-800">
             <h1 className="text-2xl font-bold text-primary">Gradely</h1>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-              {user?.studentInfo.name}
+              {user?.user_metadata?.display_name || user?.email || 'Guest'}
             </p>
           </div>
 
@@ -124,13 +124,10 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
 
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium">{user?.studentInfo.name}</p>
-                <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                  {user?.studentInfo.gradeLevel}
-                </p>
+                <p className="text-sm font-medium">{user?.user_metadata?.display_name || user?.email || 'User'}</p>
               </div>
               <div className="size-10 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
-                {user?.studentInfo.name.charAt(0)}
+                {user?.user_metadata?.display_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
               </div>
             </div>
           </div>

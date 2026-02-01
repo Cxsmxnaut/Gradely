@@ -41,6 +41,33 @@ export function GradesPage() {
     resetHypotheticalMode,
   } = useGrades();
 
+  // Defensive check: if no courses, show empty state
+  if (!courses || courses.length === 0) {
+    return (
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-lg p-12 max-w-md w-full">
+              <AlertCircle className="size-16 text-neutral-400 mb-4 mx-auto" />
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
+                No grades available yet
+              </h1>
+              <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+                Link your StudentVUE account to view your grades, assignments, and academic progress.
+              </p>
+              <Button 
+                onClick={() => window.location.href = '/student-info'}
+                className="bg-primary hover:bg-primary/90 w-full"
+              >
+                Link StudentVUE to your account
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const [selectedCourse, setSelectedCourse] = useState<Course>(courses[0]);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -54,6 +81,10 @@ export function GradesPage() {
 
   // Generate chart data for selected course
   const generateChartData = () => {
+    if (!selectedCourse || !selectedCourse.assignments || selectedCourse.assignments.length === 0) {
+      return [];
+    }
+
     const data: { name: string; grade: number }[] = [];
     let runningGrade = 0;
     let count = 0;
@@ -74,11 +105,11 @@ export function GradesPage() {
 
   // Generate category breakdown
   const generateCategoryData = () => {
-    const categoryTotals: Record<string, { earned: number; possible: number; weight: number }> = {};
-
-    if (!selectedCourse?.categoryWeights) {
+    if (!selectedCourse?.categoryWeights || !selectedCourse.assignments) {
       return [];
     }
+
+    const categoryTotals: Record<string, { earned: number; possible: number; weight: number }> = {};
 
     Object.keys(selectedCourse.categoryWeights).forEach((category) => {
       categoryTotals[category] = {
@@ -150,10 +181,10 @@ export function GradesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Grades</h1>
-          <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold">Grades</h1>
+          <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mt-1">
             Track and predict your academic performance
           </p>
         </div>
@@ -217,18 +248,18 @@ export function GradesPage() {
               <button
                 key={course.id}
                 onClick={() => setSelectedCourse(course)}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                className={`p-3 sm:p-4 rounded-lg border-2 transition-all text-left ${
                   selectedCourse.id === course.id
                     ? 'border-primary bg-primary/5'
                     : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
                 }`}
               >
-                <h3 className="font-semibold text-sm">{course.name}</h3>
+                <h3 className="font-semibold text-sm truncate">{course.name}</h3>
                 <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
                   {course.teacher}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-2xl font-bold text-primary">
+                  <span className="text-xl sm:text-2xl font-bold text-primary">
                     {course.letterGrade}
                   </span>
                   <span className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -252,22 +283,30 @@ export function GradesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="grade"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  name="Grade %"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {chartData.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-neutral-600 dark:text-neutral-400">
+                  No grade data available to display chart.
+                </p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="grade"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    name="Grade %"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -280,16 +319,24 @@ export function GradesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={categoryData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="percentage" fill="#8b5cf6" name="Score %" />
-              </BarChart>
-            </ResponsiveContainer>
+            {categoryData.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-neutral-600 dark:text-neutral-400">
+                  No category data available to display chart.
+                </p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={categoryData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="percentage" fill="#8b5cf6" name="Score %" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -377,19 +424,26 @@ export function GradesPage() {
           )}
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {selectedCourse.assignments.map((assignment) => (
+          {!selectedCourse.assignments || selectedCourse.assignments.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-neutral-600 dark:text-neutral-400">
+                No assignments available for this course yet.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {selectedCourse.assignments.map((assignment) => (
               <div
                 key={assignment.id}
-                className={`flex items-center justify-between p-4 rounded-lg border ${
+                className={`flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 rounded-lg border ${
                   assignment.isHypothetical
                     ? 'border-purple-300 bg-purple-50 dark:bg-purple-950/20 dark:border-purple-700'
                     : 'border-neutral-200 dark:border-neutral-800'
                 }`}
               >
-                <div className="flex-1">
+                <div className="flex-1 min-w-0 mb-3 sm:mb-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{assignment.name}</h3>
+                    <h3 className="font-semibold text-sm truncate">{assignment.name}</h3>
                     {assignment.isHypothetical && (
                       <Badge variant="secondary" className="text-xs">
                         Hypothetical
@@ -400,9 +454,9 @@ export function GradesPage() {
                     {assignment.category} • Due: {new Date(assignment.dueDate).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between sm:justify-end gap-4">
                   <div className="text-right">
-                    <div className="text-xl font-bold">
+                    <div className="text-lg sm:text-xl font-bold">
                       {assignment.isNotGraded ? '—' : `${assignment.score}/${assignment.maxScore}`}
                     </div>
                     <div className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -427,6 +481,7 @@ export function GradesPage() {
               </div>
             ))}
           </div>
+          )}
         </CardContent>
       </Card>
     </div>
