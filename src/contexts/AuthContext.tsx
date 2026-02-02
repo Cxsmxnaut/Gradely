@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types';
 import { 
-  saveStudentVueCredentials, 
-  getStudentVueCredentials, 
-  deleteStudentVueCredentials 
+  saveStudentVueCredentials
 } from '@/lib/studentVueCredentials';
 
 interface AuthContextType {
