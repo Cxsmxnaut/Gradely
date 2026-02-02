@@ -1,4 +1,4 @@
-student-gradely.vercel.app
+https://student-gradely.vercel.app
 
 # Gradely
 
