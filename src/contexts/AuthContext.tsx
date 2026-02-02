@@ -1,5 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types';
+import { 
+  saveStudentVueCredentials, 
+  getStudentVueCredentials, 
+  deleteStudentVueCredentials 
+} from '@/lib/studentVueCredentials';
 
 interface AuthContextType {
   user: User | null;
@@ -28,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const restoreAuth = async () => {
       try {
-        // Check for persisted auth session
+        // First try to restore from localStorage (existing logic)
         const authSession = localStorage.getItem('auth_session');
         const authUser = localStorage.getItem('auth_user');
         const districtDomain = localStorage.getItem('district_domain');
@@ -99,19 +104,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.warn('Failed to fetch fresh student data during restore, using cached:', studentError);
               setUser(user);
             }
-            
-            console.log('✅ Authentication session restored successfully');
-          } else {
-            console.warn('🔹 Invalid session data, clearing storage');
-            clearAuthStorage();
+            setIsLoading(false);
+            return;
           }
-        } else {
-          console.log('🔹 No existing authentication session found');
         }
+        
+        // If localStorage restore fails, try Supabase
+        console.log('🔍 No localStorage session found, checking Supabase for credentials');
+        
+        // For now, we need a user ID to fetch credentials
+        // In a real implementation, this would come from the authenticated user session
+        // For now, we'll skip Supabase restore and require manual login
+        
+        console.log('� No valid session found, requiring manual login');
+        setIsLoading(false);
+        
       } catch (error) {
-        console.warn('Failed to restore authentication session:', error);
-        clearAuthStorage();
-      } finally {
+        console.error('Error during auth restoration:', error);
         setIsLoading(false);
       }
     };
@@ -230,6 +239,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         setUser(user);
         console.log('✅ Authentication successful and persisted');
+        
+        // Save credentials to Supabase for cross-device sync
+        if (remember) {
+          try {
+            // Use a consistent user ID for StudentVUE credentials
+            // In a real app, this would be the actual authenticated user ID
+            const userId = user.studentInfo?.studentId || username;
+            await saveStudentVueCredentials(userId, districtUrl, username, password);
+            console.log('✅ StudentVUE credentials saved to Supabase for cross-device sync');
+          } catch (supabaseError) {
+            console.warn('Failed to save credentials to Supabase, continuing with localStorage:', supabaseError);
+          }
+        }
+        
         return true;
         
       } catch (error) {

@@ -35,7 +35,7 @@ import type {
 } from '@/lib/types/MailData';
 
 export function MailPage() {
-  const { user } = useAuth();
+  const { user, credentials } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,14 +50,13 @@ export function MailPage() {
   // Fetch mail from StudentVUE API
   useEffect(() => {
     const fetchMail = async () => {
-      if (!user || !(user as any).credentials) {
-        console.log('🔍 Mail: No user or credentials found');
+      if (!credentials) {
+        console.log('🔍 Mail: No credentials found in AuthContext');
         setLoading(false);
         return;
       }
 
       try {
-        const credentials = (user as any).credentials;
         console.log('🔍 Mail: Starting fetch with credentials:', {
           districtUrl: credentials.districtUrl,
           username: credentials.username
@@ -154,7 +153,7 @@ export function MailPage() {
     };
 
     fetchMail();
-  }, [user]);
+  }, [credentials]);
 
   // Helper function to process attachments
   const processAttachments = (attachments: AttachmentsClass | string): Message['attachments'] => {
