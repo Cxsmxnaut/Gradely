@@ -245,7 +245,7 @@ export function StudentInfoPage() {
             <div className="flex justify-center">
               <ProfilePictureUpload
                 currentPicture={gradelyUser?.user_metadata?.profile_picture_url || null}
-                onPictureUpdate={(url) => {
+                onPictureUpdate={() => {
                   // Refresh user data to show updated picture
                   window.location.reload();
                 }}
