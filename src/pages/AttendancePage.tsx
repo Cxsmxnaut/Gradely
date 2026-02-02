@@ -93,14 +93,14 @@ export function AttendancePage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Attendance</h1>
-        <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mt-1">
+        <h1 className="text-3xl font-bold">Attendance</h1>
+        <p className="text-neutral-600 dark:text-neutral-400 mt-1">
           View your attendance history and statistics
         </p>
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
@@ -108,7 +108,7 @@ export function AttendancePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-primary">{attendanceRate}%</div>
+            <div className="text-2xl font-bold text-primary">{attendanceRate}%</div>
           </CardContent>
         </Card>
 
@@ -120,8 +120,8 @@ export function AttendancePage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="size-4 sm:size-5 text-green-600" />
-              <span className="text-xl sm:text-2xl font-bold">{presentDays}</span>
+              <CheckCircle2 className="size-5 text-green-600" />
+              <span className="text-2xl font-bold">{presentDays}</span>
             </div>
           </CardContent>
         </Card>
@@ -134,8 +134,8 @@ export function AttendancePage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <XCircle className="size-4 sm:size-5 text-red-600" />
-              <span className="text-xl sm:text-2xl font-bold">{absentDays}</span>
+              <XCircle className="size-5 text-red-600" />
+              <span className="text-2xl font-bold">{absentDays}</span>
             </div>
           </CardContent>
         </Card>
@@ -148,8 +148,8 @@ export function AttendancePage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Clock className="size-4 sm:size-5 text-yellow-600" />
-              <span className="text-xl sm:text-2xl font-bold">{tardyDays}</span>
+              <Clock className="size-5 text-yellow-600" />
+              <span className="text-2xl font-bold">{tardyDays}</span>
             </div>
           </CardContent>
         </Card>
@@ -162,8 +162,8 @@ export function AttendancePage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <AlertCircle className="size-4 sm:size-5 text-blue-600" />
-              <span className="text-xl sm:text-2xl font-bold">{excusedDays}</span>
+              <AlertCircle className="size-5 text-blue-600" />
+              <span className="text-2xl font-bold">{excusedDays}</span>
             </div>
           </CardContent>
         </Card>
@@ -179,60 +179,56 @@ export function AttendancePage() {
         </CardHeader>
         <CardContent>
           {/* Calendar Grid */}
-          <div className="overflow-x-auto">
-            <div className="grid grid-cols-7 gap-1 sm:gap-2 min-w-[280px]">
-              {/* Day headers */}
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                <div
-                  key={day + index}
-                  className="text-center text-xs sm:text-sm font-semibold text-neutral-600 dark:text-neutral-400 py-1 sm:py-2"
+          <div className="grid grid-cols-7 gap-2">
+            {/* Day headers */}
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <div
+                key={day}
+                className="text-center text-sm font-semibold text-neutral-600 dark:text-neutral-400 py-2"
+              >
+                {day}
+              </div>
+            ))}
+
+            {/* Calendar days */}
+            {calendarDays.map((day, index) => {
+              if (!day) {
+                return <div key={`empty-${index}`} className="aspect-square" />;
+              }
+
+              const attendance = getAttendanceForDate(day);
+              const isToday = day.toDateString() === new Date().toDateString();
+              const dateString = day.toISOString().split('T')[0];
+
+              return (
+                <button
+                  key={dateString}
+                  onClick={() => setSelectedDate(dateString)}
+                  className={`aspect-square p-2 rounded-lg border transition-all ${
+                    isToday
+                      ? 'border-primary border-2'
+                      : 'border-neutral-200 dark:border-neutral-800'
+                  } ${
+                    attendance
+                      ? attendance.status === 'Present'
+                        ? 'bg-green-50 dark:bg-green-950/20'
+                        : attendance.status === 'Absent'
+                        ? 'bg-red-50 dark:bg-red-950/20'
+                        : attendance.status === 'Tardy'
+                        ? 'bg-yellow-50 dark:bg-yellow-950/20'
+                        : 'bg-blue-50 dark:bg-blue-950/20'
+                      : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                  } ${selectedDate === dateString ? 'ring-2 ring-primary' : ''}`}
                 >
-                  {day}
-                </div>
-              ))}
-
-              {/* Calendar days */}
-              {calendarDays.map((day, index) => {
-                if (!day) {
-                  return <div key={`empty-${index}`} className="aspect-square" />;
-                }
-
-                const attendance = getAttendanceForDate(day);
-                const isToday = day.toDateString() === new Date().toDateString();
-                const dateString = day.toISOString().split('T')[0];
-
-                return (
-                  <button
-                    key={dateString}
-                    onClick={() => setSelectedDate(dateString)}
-                    className={`aspect-square p-1 sm:p-2 rounded-lg border transition-all ${
-                      isToday
-                        ? 'border-primary border-2'
-                        : 'border-neutral-200 dark:border-neutral-800'
-                    } ${
-                      attendance
-                        ? attendance.status === 'Present'
-                          ? 'bg-green-50 dark:bg-green-950/20'
-                          : attendance.status === 'Absent'
-                          ? 'bg-red-50 dark:bg-red-950/20'
-                          : attendance.status === 'Tardy'
-                          ? 'bg-yellow-50 dark:bg-yellow-950/20'
-                          : 'bg-blue-50 dark:bg-blue-950/20'
-                        : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
-                    } ${selectedDate === dateString ? 'ring-2 ring-primary' : ''}`}
-                  >
-                    <div className="text-xs sm:text-sm font-medium">{day.getDate()}</div>
-                    {attendance && (
-                      <div className="mt-1 flex justify-center">
-                        <div className="size-3 sm:size-4">
-                          {getStatusIcon(attendance.status)}
-                        </div>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                  <div className="text-sm font-medium">{day.getDate()}</div>
+                  {attendance && (
+                    <div className="mt-1 flex justify-center">
+                      {getStatusIcon(attendance.status)}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -249,35 +245,36 @@ export function AttendancePage() {
               .map((record) => (
                 <div
                   key={record.id}
-                  className={`p-3 sm:p-4 rounded-lg border ${
+                  className={`p-4 rounded-lg border ${
                     selectedDate === record.date
                       ? 'border-primary bg-primary/5'
                       : 'border-neutral-200 dark:border-neutral-800'
                   }`}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       {getStatusIcon(record.status)}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                          <span className="font-semibold text-sm">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">
                             {new Date(record.date).toLocaleDateString('en-US', {
-                              weekday: 'short',
-                              month: 'short',
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
                               day: 'numeric',
                             })}
                           </span>
-                          <Badge className={getStatusColor(record.status)} w-fit>
+                          <Badge className={getStatusColor(record.status)}>
                             {record.status}
                           </Badge>
                         </div>
                         {record.courseName && (
-                          <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mt-1 truncate">
+                          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
                             Period {record.period}: {record.courseName}
                           </p>
                         )}
                         {record.notes && (
-                          <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+                          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
                             {record.notes}
                           </p>
                         )}

@@ -259,7 +259,7 @@ export function StudentInfoPage() {
                 <div className={`size-24 sm:size-32 rounded-full bg-gradient-to-br from-primary to-blue-600 text-white flex items-center justify-center text-3xl sm:text-4xl font-bold ${studentInfo.photo ? 'hidden' : ''}`}>
                   {studentInfo.name
                     .split(' ')
-                    .map((n) => n[0])
+                    .map((n: string) => n[0])
                     .join('')}
                 </div>
               </div>

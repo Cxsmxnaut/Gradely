@@ -52,8 +52,16 @@ export function GradelyLoginPage() {
         return;
       }
     } else {
-      if (!formData.username || !formData.displayName || !formData.email || !formData.password) {
+      if (!formData.username || !formData.displayName || !formData.email || !formData.password || !formData.dateOfBirth) {
         toast.error('Please fill in all fields');
+        return;
+      }
+      
+      // Age validation - must be 13 or older
+      const birthDate = new Date(formData.dateOfBirth);
+      const minAgeDate = new Date(Date.now() - 13 * 365 * 24 * 60 * 60 * 1000);
+      if (birthDate > minAgeDate) {
+        toast.error('You must be at least 13 years old to use Gradely');
         return;
       }
     }
@@ -119,6 +127,16 @@ export function GradelyLoginPage() {
               <div className="forgot-link">
                 <a href="#">Forgot Password?</a>
               </div>
+              
+              {/* Legal Disclaimer */}
+              <div className="legal-disclaimer">
+                <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
+                  Gradely is not affiliated with any school or educational institution.
+                  <br />
+                  By logging in, you confirm you are at least 13 years old.
+                </p>
+              </div>
+              
               <button type="submit" className="btn" disabled={loading}>
                 {loading ? 'Logging in...' : 'Login'}
               </button>
@@ -182,6 +200,29 @@ export function GradelyLoginPage() {
                   {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
                 </button>
               </div>
+              
+              {/* Age Verification */}
+              <div className="input-box">
+                <input
+                  type="date"
+                  placeholder="Date of Birth"
+                  value={formData.dateOfBirth}
+                  onChange={e => handleInputChange('dateOfBirth', e.target.value)}
+                  required
+                  max={new Date(Date.now() - 13 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                />
+                <User className="bx bxs-user" />
+              </div>
+              
+              {/* Legal Disclaimer */}
+              <div className="legal-disclaimer">
+                <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
+                  Gradely is not affiliated with any school or educational institution.
+                  <br />
+                  By registering, you confirm you are at least 13 years old and agree to our Terms of Service and Privacy Policy.
+                </p>
+              </div>
+              
               <button type="submit" className="btn" disabled={loading}>
                 {loading ? 'Creating Account...' : 'Register'}
               </button>

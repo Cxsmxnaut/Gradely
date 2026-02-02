@@ -135,6 +135,19 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
 
         {/* Page Content */}
         <main className="flex-1 overflow-auto p-6">{children}</main>
+        
+        {/* Legal Footer */}
+        <footer className="bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 p-4">
+          <div className="text-center text-xs text-neutral-600 dark:text-neutral-400">
+            <p>
+              Gradely is not affiliated with, endorsed by, or connected to any school or educational institution.
+            </p>
+            <div className="flex justify-center gap-4 mt-2">
+              <a href="/terms-of-service" className="hover:text-primary transition-colors">Terms of Service</a>
+              <a href="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</a>
+            </div>
+          </div>
+        </footer>
       </div>
 
       {/* Mobile Overlay */}

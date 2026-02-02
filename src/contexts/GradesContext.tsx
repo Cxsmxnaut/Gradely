@@ -3,13 +3,14 @@ import { Course, Assignment } from '@/types';
 import { fetchGrades } from '@/adapters/dataService';
 import { setAuthCredentials } from '@/adapters/dataService';
 import { useAuth } from './AuthContext';
+import { useGradelyAuth } from './GradelyAuthContext';
 import { calculateCourseGradeFromAssignments } from '@/lib/courseMapper';
 import { calculateGPAV3, GPACalculationResult, toggleWeightedGPA, updateCourseWeighting, updateCourseExclusion } from '@/lib/gpaCalculatorV3';
-
-// Cache keys
-const GRADES_CACHE_KEY = 'gradely_grades_cache';
-const GRADES_CACHE_TIMESTAMP_KEY = 'gradely_grades_cache_timestamp';
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+import { 
+  getValidCachedGrades, 
+  cacheGradesForUser,
+  shouldRefreshCache
+} from '@/lib/gradeCache';
 
 interface GradesContextType {
   courses: Course[];
@@ -26,6 +27,9 @@ interface GradesContextType {
   toggleWeightedGPA: () => void;
   updateCourseWeighting: (courseId: string, weighting: 'none' | 'honors' | 'ap') => void;
   updateCourseExclusion: (courseId: string, excluded: boolean) => void;
+  // Cache features
+  loading: boolean;
+  usingCachedData: boolean;
 }
 
 const GradesContext = createContext<GradesContextType | undefined>(undefined);
@@ -34,80 +38,26 @@ export function GradesProvider({ children }: { children: React.ReactNode }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [isHypotheticalMode, setIsHypotheticalMode] = useState(false);
   const [targetGrade, setTargetGrade] = useState(90);
-  const [, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [usingCachedData, setUsingCachedData] = useState(false);
   const [gpaResult, setGpaResult] = useState<GPACalculationResult | null>(null);
   const { credentials } = useAuth();
+  const { user: gradelyUser } = useGradelyAuth();
 
   // Set credentials for data service when they change
   useEffect(() => {
     setAuthCredentials(credentials);
   }, [credentials]);
 
-  // Load courses on mount or when credentials change
-  useEffect(() => {
-    const loadCourses = async () => {
-      try {
-        console.log('🔍 Loading courses...');
-        
-        // Check cache first (session storage for immediate access, localStorage for persistence)
-        const sessionData = sessionStorage.getItem('current_courses');
-        const cachedData = localStorage.getItem(GRADES_CACHE_KEY);
-        const cacheTimestamp = localStorage.getItem(GRADES_CACHE_TIMESTAMP_KEY);
-        
-        // Try session storage first for immediate loading
-        if (sessionData) {
-          try {
-            const parsedCourses = JSON.parse(sessionData);
-            setCourses(parsedCourses);
-            
-            // Calculate GPA using session data
-            const gpaCalculation = calculateGPAV3(parsedCourses);
-            setGpaResult(gpaCalculation);
-            console.log('📦 Courses loaded from session storage:', parsedCourses.length, 'courses');
-            setLoading(false);
-            return;
-          } catch (parseError) {
-            console.warn('Failed to parse session data, trying localStorage:', parseError);
-          }
-        }
-        
-        // Fall back to localStorage cache
-        if (cachedData && cacheTimestamp) {
-          const cacheAge = Date.now() - parseInt(cacheTimestamp);
-          if (cacheAge < CACHE_DURATION) {
-            console.log('📦 Loading courses from cache (', Math.round(cacheAge / 1000), 'seconds old)');
-            try {
-              const parsedCourses = JSON.parse(cachedData);
-              setCourses(parsedCourses);
-              
-              // Update session storage with fresh cache data
-              sessionStorage.setItem('current_courses', JSON.stringify(parsedCourses));
-              
-              // Calculate GPA using cached data
-              const gpaCalculation = calculateGPAV3(parsedCourses);
-              setGpaResult(gpaCalculation);
-              console.log('✅ Courses loaded from cache:', parsedCourses.length, 'courses');
-              setLoading(false);
-              return;
-            } catch (parseError) {
-              console.warn('Failed to parse cached data, fetching fresh:', parseError);
-            }
-          } else {
-            console.log('⏰ Cache expired (', Math.round(cacheAge / 1000), 'seconds old), fetching fresh');
-          }
-        } else {
-          console.log('📭 No cache found, fetching fresh');
-        }
-        
-        // Fetch fresh data
-        console.log('🌐 Fetching fresh courses data...');
-        const coursesData = await fetchGrades();
-        console.log('🔍 Courses data received:', coursesData);
-        
-        // Only recalculate grades if they seem incorrect (0 or undefined)
+  // Background sync function
+  const syncGradesInBackground = async (userId: string) => {
+    try {
+      console.log('🔄 Background sync: Fetching fresh grades...');
+      const coursesData = await fetchGrades();
+      
+      if (coursesData && coursesData.length > 0) {
+        // Process and verify courses
         const verifiedCourses = coursesData.map(course => {
-          // If the course has a reasonable percentage from the backend, use it
-          // Otherwise calculate from assignments
           let finalGrade = course.currentGrade;
           
           if (!course.currentGrade || course.currentGrade === 0 || course.currentGrade < 0) {
@@ -124,37 +74,86 @@ export function GradesProvider({ children }: { children: React.ReactNode }) {
           };
         });
         
+        // Cache the fresh data
+        await cacheGradesForUser({
+          gradely_user_id: userId,
+          cached_grades: verifiedCourses,
+          linked_account_id: credentials?.districtUrl || undefined
+        });
+        
+        // Update state with fresh data
         setCourses(verifiedCourses);
-        console.log('✅ Courses loaded and verified:', verifiedCourses.length, 'courses');
+        setUsingCachedData(false);
         
-        // Cache the fresh data with session persistence
-        try {
-          localStorage.setItem(GRADES_CACHE_KEY, JSON.stringify(verifiedCourses));
-          localStorage.setItem(GRADES_CACHE_TIMESTAMP_KEY, Date.now().toString());
-          // Also store in session storage for immediate access
-          sessionStorage.setItem('current_courses', JSON.stringify(verifiedCourses));
-          console.log('💾 Courses cached for future use with session persistence');
-        } catch (cacheError) {
-          console.warn('Failed to cache courses data:', cacheError);
-        }
-        
-        // Calculate GPA using V3 system
+        // Calculate GPA using fresh data
         const gpaCalculation = calculateGPAV3(verifiedCourses);
         setGpaResult(gpaCalculation);
-        console.log('✅ GPA calculated:', gpaCalculation);
+        
+        console.log('✅ Background sync completed:', verifiedCourses.length, 'courses');
+      }
+    } catch (error) {
+      console.error('Background sync failed:', error);
+    }
+  };
+
+  // Load courses on mount or when credentials change
+  useEffect(() => {
+    const loadCourses = async () => {
+      if (!gradelyUser) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        console.log('🔍 Loading courses for user:', gradelyUser.id);
+        setLoading(true);
+        
+        // Try to get cached grades first (login-based, no time expiry)
+        const cachedGrades = await getValidCachedGrades(gradelyUser.id);
+        
+        if (cachedGrades && cachedGrades.length > 0) {
+          console.log('📦 Using cached grades from server:', cachedGrades.length, 'courses');
+          setCourses(cachedGrades);
+          setUsingCachedData(true);
+          
+          // Calculate GPA using cached data
+          const gpaCalculation = calculateGPAV3(cachedGrades);
+          setGpaResult(gpaCalculation);
+          
+          setLoading(false);
+          
+          // Check if we should refresh cache (only if user has credentials)
+          if (credentials && shouldRefreshCache(true)) {
+            // Add a small delay to ensure UI renders first
+            setTimeout(() => {
+              syncGradesInBackground(gradelyUser.id);
+            }, 100);
+          }
+        } else {
+          console.log('📭 No cached grades found, fetching fresh data');
+          
+          if (!credentials) {
+            // No credentials and no cache - show empty state
+            setCourses([]);
+            setUsingCachedData(false);
+            setLoading(false);
+            return;
+          }
+          
+          // Fetch fresh data immediately
+          await syncGradesInBackground(gradelyUser.id);
+        }
       } catch (error) {
         console.error('Failed to load courses:', error);
+        setCourses([]);
+        setUsingCachedData(false);
       } finally {
         setLoading(false);
       }
     };
 
-    if (credentials) {
-      loadCourses();
-    } else {
-      setLoading(false);
-    }
-  }, [credentials]);
+    loadCourses();
+  }, [credentials, gradelyUser]);
 
   const getLetterGrade = (grade: number): string => {
     if (grade >= 97) return 'A+';
@@ -282,15 +281,18 @@ export function GradesProvider({ children }: { children: React.ReactNode }) {
       
       setCourses(verifiedCourses);
       
-      // Update cache with fresh data
-      try {
-        localStorage.setItem(GRADES_CACHE_KEY, JSON.stringify(verifiedCourses));
-        localStorage.setItem(GRADES_CACHE_TIMESTAMP_KEY, Date.now().toString());
-        // Also update session storage
-        sessionStorage.setItem('current_courses', JSON.stringify(verifiedCourses));
-        console.log('💾 Cache updated with fresh data');
-      } catch (cacheError) {
-        console.warn('Failed to update cache:', cacheError);
+      // Update server cache with fresh data
+      if (gradelyUser) {
+        try {
+          await cacheGradesForUser({
+            gradely_user_id: gradelyUser.id,
+            cached_grades: verifiedCourses,
+            linked_account_id: credentials?.districtUrl || undefined
+          });
+          console.log('💾 Server cache updated with fresh data');
+        } catch (cacheError) {
+          console.warn('Failed to update server cache:', cacheError);
+        }
       }
     } catch (error) {
       console.error('Failed to reload courses:', error);
@@ -342,6 +344,9 @@ export function GradesProvider({ children }: { children: React.ReactNode }) {
         toggleWeightedGPA: handleToggleWeightedGPA,
         updateCourseWeighting: handleUpdateCourseWeighting,
         updateCourseExclusion: handleUpdateCourseExclusion,
+        // Cache features
+        loading,
+        usingCachedData,
       }}
     >
       {children}

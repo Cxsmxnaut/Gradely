@@ -27,3 +27,4 @@ src/lib/mocks/data
 
 #Dist
 /dist
+.env*.local

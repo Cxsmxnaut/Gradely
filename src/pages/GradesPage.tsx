@@ -1,17 +1,5 @@
 import { useState } from 'react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-} from 'recharts';
-import { Plus, Trash2, TrendingUp, Target, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Switch } from '@/app/components/ui/switch';
@@ -30,6 +18,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useGrades } from '@/contexts/GradesContext';
 import { Course, Assignment } from '@/types';
 import { toast } from 'sonner';
+import { NoGradesFallback } from '@/components/NoGradesFallback';
+import { GradeChart } from '@/components/GradeChart';
+import type { Category } from '@/lib/grades/assignments';
 
 export function GradesPage() {
   const {
@@ -39,30 +30,33 @@ export function GradesPage() {
     addHypotheticalAssignment,
     removeHypotheticalAssignment,
     resetHypotheticalMode,
+    loading,
+    usingCachedData,
   } = useGrades();
 
-  // Defensive check: if no courses, show empty state
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show fallback if no courses
   if (!courses || courses.length === 0) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-lg p-12 max-w-md w-full">
-              <AlertCircle className="size-16 text-neutral-400 mb-4 mx-auto" />
-              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
-                No grades available yet
-              </h1>
-              <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-                Link your StudentVUE account to view your grades, assignments, and academic progress.
-              </p>
-              <Button 
-                onClick={() => window.location.href = '/student-info'}
-                className="bg-primary hover:bg-primary/90 w-full"
-              >
-                Link StudentVUE to your account
-              </Button>
-            </div>
-          </div>
+          <NoGradesFallback 
+            onLinkStudentVUE={() => window.location.href = '/student-info'}
+            onRefresh={() => window.location.reload()}
+            loading={loading}
+          />
         </div>
       </div>
     );
@@ -79,59 +73,42 @@ export function GradesPage() {
     maxScore: '100',
   });
 
-  // Generate chart data for selected course
-  const generateChartData = () => {
-    if (!selectedCourse || !selectedCourse.assignments || selectedCourse.assignments.length === 0) {
-      return [];
-    }
-
-    const data: { name: string; grade: number }[] = [];
-    let runningGrade = 0;
-    let count = 0;
-
-    selectedCourse.assignments.forEach((assignment, index) => {
-      count++;
-      const percentage = (assignment.score / assignment.maxScore) * 100;
-      runningGrade = ((runningGrade * (count - 1)) + percentage) / count;
-      
-      data.push({
-        name: `Assignment ${index + 1}`,
-        grade: parseFloat(runningGrade.toFixed(2)),
-      });
-    });
-
-    return data;
-  };
-
-  // Generate category breakdown
-  const generateCategoryData = () => {
-    if (!selectedCourse?.categoryWeights || !selectedCourse.assignments) {
-      return [];
-    }
-
-    const categoryTotals: Record<string, { earned: number; possible: number; weight: number }> = {};
-
-    Object.keys(selectedCourse.categoryWeights).forEach((category) => {
-      categoryTotals[category] = {
-        earned: 0,
-        possible: 0,
-        weight: selectedCourse.categoryWeights[category],
-      };
-    });
-
-    selectedCourse.assignments.forEach((assignment) => {
-      if (categoryTotals[assignment.category]) {
-        categoryTotals[assignment.category].earned += assignment.score;
-        categoryTotals[assignment.category].possible += assignment.maxScore;
-      }
-    });
-
-    return Object.entries(categoryTotals).map(([name, data]) => ({
-      name,
-      percentage: data.possible > 0 ? parseFloat(((data.earned / data.possible) * 100).toFixed(2)) : 0,
-      weight: data.weight,
+  // Convert assignments to match Svelte structure
+  const convertAssignments = (assignments: Assignment[]) => {
+    return assignments.map(assignment => ({
+      ...assignment,
+      date: assignment.dueDate ? new Date(assignment.dueDate) : new Date(),
+      extraCredit: assignment.weight === 0 || false,
+      notForGrade: assignment.isNotGraded || false,
+      hidden: false,
+      newHypothetical: assignment.isHypothetical || false,
+      pointsEarned: assignment.score,
+      pointsPossible: assignment.maxScore,
+      gradePercentageChange: undefined,
+      unscaledPoints: undefined,
     }));
   };
+
+  // Convert categories to match Svelte structure
+  const convertCategories = (course: Course): Category[] | undefined => {
+    if (!course.categoryWeights) return undefined;
+    
+    return Object.entries(course.categoryWeights).map(([name, weight]) => ({
+      name,
+      weightPercentage: weight * 100, // Convert decimal to percentage
+      pointsEarned: 0, // Would need to calculate from assignments
+      pointsPossible: 0, // Would need to calculate from assignments
+      weightedPercentage: 0, // Would need to calculate from assignments
+      gradeLetter: '', // Would need to calculate from assignments
+    }));
+  };
+
+  const convertedAssignments = convertAssignments(selectedCourse.assignments || []);
+  const gradeCategories = convertCategories(selectedCourse);
+
+  console.log('🔍 GradesPage Debug - selectedCourse.assignments:', selectedCourse.assignments);
+  console.log('🔍 GradesPage Debug - convertedAssignments:', convertedAssignments);
+  console.log('🔍 GradesPage Debug - gradeCategories:', gradeCategories);
 
   const handleAddHypotheticalAssignment = () => {
     if (!newAssignment.name || !newAssignment.category || !newAssignment.score) {
@@ -175,18 +152,25 @@ export function GradesPage() {
     toast.success('Assignment removed');
   };
 
-  const chartData = generateChartData();
-  const categoryData = generateCategoryData();
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Grades</h1>
-          <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mt-1">
-            Track and predict your academic performance
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">Grades</h1>
+            <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mt-1">
+              Track and predict your academic performance
+            </p>
+          </div>
+          
+          {/* Cache Status Indicator */}
+          {usingCachedData && (
+            <Badge variant="secondary" className="w-fit">
+              <Clock className="size-3 mr-1" />
+              Cached data
+            </Badge>
+          )}
         </div>
 
         {/* Hypothetical Mode Toggle */}
@@ -272,74 +256,13 @@ export function GradesPage() {
         </CardContent>
       </Card>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Grade Progression Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="size-5" />
-              Grade Progression
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {chartData.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-neutral-600 dark:text-neutral-400">
-                  No grade data available to display chart.
-                </p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="grade"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    name="Grade %"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Category Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="size-5" />
-              Category Breakdown
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {categoryData.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-neutral-600 dark:text-neutral-400">
-                  No category data available to display chart.
-                </p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={categoryData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="percentage" fill="#8b5cf6" name="Score %" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Grade Chart - Exact Svelte Implementation */}
+      <GradeChart 
+        assignments={convertedAssignments}
+        gradeCategories={gradeCategories}
+        animate={true}
+        error={false}
+      />
 
       {/* Assignments List */}
       <Card>
