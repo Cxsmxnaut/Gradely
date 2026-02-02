@@ -21,6 +21,7 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Checkbox } from '@/app/components/ui/checkbox';
+import { ProfilePictureUpload } from '@/components/ProfilePictureUpload';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGradelyAuth } from '@/contexts/GradelyAuthContext';
 import { useGrades } from '@/contexts/GradesContext';
@@ -242,27 +243,14 @@ export function StudentInfoPage() {
           <div className="flex flex-col gap-6">
             {/* Avatar */}
             <div className="flex justify-center">
-              <div className="relative">
-                {studentInfo.photo ? (
-                  <img 
-                    src={studentInfo.photo} 
-                    alt={`${studentInfo.name}'s profile`}
-                    className="size-24 sm:size-32 rounded-full object-cover border-4 border-white shadow-lg"
-                    style={{ objectFit: 'cover' }}
-                    onError={(e) => {
-                      // Fallback to default avatar if image fails to load
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                    }}
-                  />
-                ) : null}
-                <div className={`size-24 sm:size-32 rounded-full bg-gradient-to-br from-primary to-blue-600 text-white flex items-center justify-center text-3xl sm:text-4xl font-bold ${studentInfo.photo ? 'hidden' : ''}`}>
-                  {studentInfo.name
-                    .split(' ')
-                    .map((n: string) => n[0])
-                    .join('')}
-                </div>
-              </div>
+              <ProfilePictureUpload
+                currentPicture={gradelyUser?.user_metadata?.profile_picture_url || null}
+                onPictureUpdate={(url) => {
+                  // Refresh user data to show updated picture
+                  window.location.reload();
+                }}
+                userId={gradelyUser?.id || ''}
+              />
             </div>
 
             {/* Basic Info */}

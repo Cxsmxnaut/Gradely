@@ -126,9 +126,17 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium">{user?.user_metadata?.display_name || user?.email || 'User'}</p>
               </div>
-              <div className="size-10 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
-                {user?.user_metadata?.display_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-              </div>
+              {user?.user_metadata?.profile_picture_url ? (
+                <img
+                  src={user.user_metadata.profile_picture_url}
+                  alt="Profile"
+                  className="size-10 rounded-full object-cover border-2 border-primary"
+                />
+              ) : (
+                <div className="size-10 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
+                  {user?.user_metadata?.display_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                </div>
+              )}
             </div>
           </div>
         </header>
