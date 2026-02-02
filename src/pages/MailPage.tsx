@@ -101,7 +101,7 @@ export function MailPage() {
               id: msg._SMMessageGU || `inbox-${index}`,
               from: fromName,
               subject: msg._Subject || 'No Subject',
-              body: msg._MessageText || '',
+              body: stripHtml(msg._MessageText || ''),
               date: msg._SendDateTime || new Date().toISOString(),
               read: msg._MailRead === 'Y',
               attachments: processAttachments(msg.Attachments)
@@ -129,7 +129,7 @@ export function MailPage() {
               id: msg._SMMessageGU || `sent-${index}`,
               from: `To: ${toName}`,
               subject: msg._Subject || 'No Subject',
-              body: msg._MessageText || '',
+              body: stripHtml(msg._MessageText || ''),
               date: msg._SendDateTime || new Date().toISOString(),
               read: true, // Sent messages are always read
               attachments: []
@@ -155,7 +155,32 @@ export function MailPage() {
     fetchMail();
   }, [credentials]);
 
-  // Helper function to process attachments
+  // Helper function to strip HTML tags and decode HTML entities
+  const stripHtml = (html: string): string => {
+    if (!html) return '';
+    
+    // Create a temporary div element to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // Get the text content
+    let text = tempDiv.textContent || tempDiv.innerText || '';
+    
+    // Decode HTML entities
+    text = text
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&#xD;&#xA;/g, '\n')
+      .replace(/&#x27;/g, "'")
+      .replace(/&#x2F;/g, '/');
+    
+    // Clean up extra whitespace
+    return text.replace(/\s+/g, ' ').trim();
+  };
   const processAttachments = (attachments: AttachmentsClass | string): Message['attachments'] => {
     if (typeof attachments === 'string' || !attachments?.AttachmentXML) {
       return [];
