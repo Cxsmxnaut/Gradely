@@ -127,16 +127,6 @@ export function GradelyLoginPage() {
               <div className="forgot-link">
                 <a href="#">Forgot Password?</a>
               </div>
-              
-              {/* Legal Disclaimer */}
-              <div className="legal-disclaimer">
-                <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
-                  Gradely is not affiliated with any school or educational institution.
-                  <br />
-                  By logging in, you confirm you are at least 13 years old.
-                </p>
-              </div>
-              
               <button type="submit" className="btn" disabled={loading}>
                 {loading ? 'Logging in...' : 'Login'}
               </button>
@@ -251,6 +241,17 @@ export function GradelyLoginPage() {
           </div>
         </div>
       </div>
+      
+      {/* Legal Disclaimer Footer */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 p-4 z-50">
+        <div className="text-center text-xs text-neutral-600 dark:text-neutral-400">
+          <p>
+            Gradely is not affiliated with any school or educational institution.
+            <br />
+            By logging in, you confirm you are at least 13 years old.
+          </p>
+        </div>
+      </div>
 
       <style>{`
         @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
@@ -270,6 +271,7 @@ export function GradelyLoginPage() {
           align-items: center;
           min-height: 100vh;
           background: linear-gradient(90deg, #e2e2e2, #c9d6ff);
+          padding-bottom: 80px;
         }
 
         .dark .min-h-screen {
