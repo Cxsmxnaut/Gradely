@@ -1,3 +1,5 @@
+student-gradely.vercel.app
+
 # Gradely
 
 An advanced grade calculator designed to interface with StudentVUE®.
