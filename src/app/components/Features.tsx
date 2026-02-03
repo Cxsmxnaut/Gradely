@@ -1,4 +1,4 @@
-import { Eye, TrendingUp, Calculator, Zap, Shield, BarChart3 } from "lucide-react";
+import { Eye, TrendingUp, Calculator, Zap, Shield, BarChart3, Mail, Smartphone, Bell } from "lucide-react";
 
 export function Features() {
   const features = [
@@ -8,9 +8,19 @@ export function Features() {
       description: "See every class, assignment, and score without switching between pages. Everything you need, unified in one dashboard.",
     },
     {
+      icon: Mail,
+      title: "StudentVUE Mail integration",
+      description: "Access your StudentVUE emails directly in Gradely. Never miss important grade notifications or teacher messages.",
+    },
+    {
       icon: TrendingUp,
-      title: "Track assignments clearly",
-      description: "Understand how each assignment impacts your grade with clear breakdowns and visual indicators.",
+      title: "Advanced grade progression charts",
+      description: "Beautiful, interactive charts showing your grade progression over time with dynamic scaling and detailed insights.",
+    },
+    {
+      icon: Smartphone,
+      title: "Cross-device synchronization",
+      description: "Login once and access your account seamlessly across all devices. Your credentials sync automatically.",
     },
     {
       icon: Calculator,
@@ -18,19 +28,24 @@ export function Features() {
       description: "Get instant GPA calculations across all your classes—no manual math needed. Always know where you stand.",
     },
     {
-      icon: Zap,
-      title: "Real-time updates",
-      description: "Stay informed with instant notifications when new grades are posted to your StudentVUE account.",
+      icon: Bell,
+      title: "Real-time notifications",
+      description: "Stay informed with instant notifications when new grades are posted or when you receive important messages.",
     },
     {
       icon: Shield,
       title: "Secure & private",
-      description: "Your credentials are encrypted and secure. We never share your data with third parties.",
+      description: "Your credentials are encrypted and stored securely. We never share your data with third parties.",
     },
     {
       icon: BarChart3,
       title: "Grade trends & insights",
       description: "Visualize your progress over time with beautiful charts and identify areas for improvement.",
+    },
+    {
+      icon: Zap,
+      title: "Lightning fast performance",
+      description: "Optimized for speed with smart caching. Your data loads instantly, even on slower connections.",
     },
   ];
 
@@ -83,6 +98,14 @@ export function Features() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* New features highlight */}
+        <div className="mt-20 text-center">
+          <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 backdrop-blur-sm">
+            <span className="text-violet-400 font-medium">✨ NEW</span>
+            <span className="text-white">StudentVUE Mail & Cross-Device Sync</span>
+          </div>
         </div>
       </div>
     </section>

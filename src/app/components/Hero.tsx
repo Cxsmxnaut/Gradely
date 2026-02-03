@@ -19,7 +19,7 @@ export function Hero({ onGetStarted }: HeroProps) {
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/20 mb-8 backdrop-blur-sm">
           <Sparkles className="w-4 h-4 text-violet-400" />
-          <span className="text-sm text-violet-300">StudentVUE Integration</span>
+          <span className="text-sm text-violet-300">StudentVUE Integration • Mail • Cross-Device Sync</span>
         </div>
 
         {/* Main headline */}
@@ -27,13 +27,13 @@ export function Hero({ onGetStarted }: HeroProps) {
           <span className="text-white">Your grades.</span>
           <br />
           <span className="bg-gradient-to-r from-violet-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
-            Clearer, faster, stress-free.
+            Smarter, connected, stress-free.
           </span>
         </h1>
 
         {/* Subtitle */}
         <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-          Connect your StudentVUE account and see all your grades in one simple, beautiful dashboard. Track your progress effortlessly.
+          Connect your StudentVUE account and access grades, mail, and progress tracking across all your devices. The complete student dashboard.
         </p>
 
         {/* CTA Buttons */}
@@ -100,22 +100,40 @@ export function Hero({ onGetStarted }: HeroProps) {
                 </div>
               </div>
 
+              {/* Mock navigation tabs */}
+              <div className="flex gap-2 mb-6">
+                {['Dashboard', 'Grades', 'Mail', 'Attendance'].map((tab, i) => (
+                  <div 
+                    key={i}
+                    className={`px-4 py-2 rounded-lg text-xs font-medium ${
+                      i === 0 ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'bg-white/5 text-gray-400'
+                    }`}
+                  >
+                    {tab}
+                  </div>
+                ))}
+              </div>
+
               {/* Mock content grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[1, 2, 3].map((i) => (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {[
+                  { label: 'GPA', value: '3.7', trend: '+0.2' },
+                  { label: 'Mail', value: '3 new', trend: 'Unread' },
+                  { label: 'Attendance', value: '95%', trend: 'Good' }
+                ].map((_, i) => (
                   <div key={i} className="bg-white/5 rounded-xl p-6 border border-white/5">
                     <div className="flex items-center justify-between mb-4">
-                      <div className="h-3 w-20 bg-white/20 rounded"></div>
+                      <div className="h-3 w-16 bg-white/20 rounded"></div>
                       <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500/30 to-purple-600/30"></div>
                     </div>
-                    <div className="h-6 w-16 bg-gradient-to-r from-violet-400 to-purple-400 rounded mb-2"></div>
+                    <div className="h-6 w-12 bg-gradient-to-r from-violet-400 to-purple-400 rounded mb-2"></div>
                     <div className="h-2 w-full bg-white/10 rounded"></div>
                   </div>
                 ))}
               </div>
 
               {/* Mock chart */}
-              <div className="mt-6 bg-white/5 rounded-xl p-6 border border-white/5">
+              <div className="bg-white/5 rounded-xl p-6 border border-white/5">
                 <div className="h-3 w-32 bg-white/20 rounded mb-4"></div>
                 <div className="flex items-end gap-2 h-32">
                   {[40, 65, 55, 80, 70, 90, 85, 95].map((height, i) => (
