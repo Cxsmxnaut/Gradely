@@ -58,22 +58,12 @@ export function Hero({ onGetStarted }: HeroProps) {
 
         {/* Trust indicators */}
         <div className="flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="flex -space-x-2">
-              {[1, 2, 3, 4].map((i) => (
-                <div 
-                  key={i}
-                  className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/70 border-2 border-background"
-                />
-              ))}
-            </div>
-            <div className="flex gap-1">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <span key={i} className="text-yellow-400">★</span>
-              ))}
-            </div>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <span key={i} className="text-yellow-400">★</span>
+            ))}
           </div>
-          <p className="text-sm text-muted-foreground">Trusted by 10,000+ students nationwide</p>
+          <p className="text-sm text-muted-foreground">Join thousands of students improving their grades</p>
         </div>
 
         {/* Dashboard mockup */}
