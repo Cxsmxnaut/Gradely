@@ -34,10 +34,10 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-foreground mb-4">Product</h4>
             <ul className="space-y-3">
+              <li><a href="/product" className="text-muted-foreground hover:text-foreground transition-colors">Overview</a></li>
               <li><a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a></li>
+              <li><a href="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</a></li>
               <li><a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">How It Works</a></li>
-              <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</a></li>
-              <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</a></li>
             </ul>
           </div>
 
@@ -45,9 +45,18 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-foreground mb-4">Support</h4>
             <ul className="space-y-3">
-              <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Contact Us</a></li>
-              <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</a></li>
+              <li><a href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">Contact Us</a></li>
+              <li><a href="/support" className="text-muted-foreground hover:text-foreground transition-colors">Help Center</a></li>
+              <li><a href="/faq" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</a></li>
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h4 className="font-semibold text-foreground mb-4">Legal</h4>
+            <ul className="space-y-3">
+              <li><a href="/privacy-policy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a></li>
+              <li><a href="/terms-of-service" className="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</a></li>
             </ul>
           </div>
         </div>
