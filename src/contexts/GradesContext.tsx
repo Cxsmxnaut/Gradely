@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Course, Assignment } from '@/types';
+import { Course, Assignment, AttendanceRecord } from '@/types';
 import { fetchGrades } from '@/adapters/dataService';
 import { setAuthCredentials } from '@/adapters/dataService';
 import { useAuth } from './AuthContext';
@@ -14,6 +14,7 @@ import {
 
 interface GradesContextType {
   courses: Course[];
+  attendance: AttendanceRecord[];
   isHypotheticalMode: boolean;
   targetGrade: number;
   setTargetGrade: (grade: number) => void;
@@ -36,6 +37,7 @@ const GradesContext = createContext<GradesContextType | undefined>(undefined);
 
 export function GradesProvider({ children }: { children: React.ReactNode }) {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [isHypotheticalMode, setIsHypotheticalMode] = useState(false);
   const [targetGrade, setTargetGrade] = useState(90);
   const [loading, setLoading] = useState(true);
@@ -331,6 +333,7 @@ export function GradesProvider({ children }: { children: React.ReactNode }) {
     <GradesContext.Provider
       value={{
         courses,
+        attendance,
         isHypotheticalMode,
         targetGrade,
         setTargetGrade,

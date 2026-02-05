@@ -6,7 +6,7 @@ import { useGrades } from '@/contexts/GradesContext';
 import { useGradelyAuth } from '@/contexts/GradelyAuthContext';
 import { useChat } from '@/contexts/ChatContext';
 import { ChatMessage } from '@/types/chat';
-import { Send, Plus, Menu, X, Edit2, Trash2, Check, ChevronDown } from 'lucide-react';
+import { Send, Plus, Menu, X, Edit2, Trash2, Check } from 'lucide-react';
 
 export function GradusPage() {
   const [message, setMessage] = useState('');
@@ -30,9 +30,7 @@ export function GradusPage() {
     selectChat, 
     deleteChat, 
     updateChatTitle, 
-    addMessage, 
-    updateMessage, 
-    deleteMessage 
+    addMessage
   } = useChat();
 
   const scrollToBottom = () => {
@@ -70,7 +68,11 @@ export function GradusPage() {
       const userData = {
         courses: courses || [],
         attendance: attendance || [],
-        gpaResult: gpaResult || { weightedGPA: 0, unweightedGPA: 0, totalCredits: 0 }
+        gpaResult: gpaResult ? {
+          weightedGPA: gpaResult.weightedGPA,
+          unweightedGPA: gpaResult.unweightedGPA,
+          totalCredits: gpaResult.includedCourses // Use includedCourses as totalCredits for now
+        } : { weightedGPA: 0, unweightedGPA: 0, totalCredits: 0 }
       };
 
       // Start streaming response
@@ -123,7 +125,7 @@ export function GradusPage() {
   };
 
   const handleNewChat = () => {
-    const newChatId = createNewChat();
+    createNewChat();
     setMessage('');
   };
 
