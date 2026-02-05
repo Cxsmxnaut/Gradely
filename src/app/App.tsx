@@ -4,6 +4,7 @@ import { Toaster } from '@/app/components/ui/sonner';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { GradelyAuthProvider, useGradelyAuth } from '@/contexts/GradelyAuthContext';
 import { GradesProvider } from '@/contexts/GradesContext';
+import { ChatProvider } from '@/contexts/ChatContext';
 import { AppLayout } from '@/components/AppLayout';
 import { LandingPage } from '@/pages/LandingPage';
 import { GradelyLoginPage } from '@/pages/GradelyLoginPage';
@@ -13,6 +14,7 @@ import { AttendancePage } from '@/pages/AttendancePage';
 import { DocumentsPage } from '@/pages/DocumentsPage';
 import { MailPage } from '@/pages/MailPage';
 import { StudentInfoPage } from '@/pages/StudentInfoPage';
+import { GradusPage } from '@/pages/GradusPage';
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -125,6 +127,8 @@ function AppContent() {
         return <MailPage />;
       case 'student-info':
         return <StudentInfoPage />;
+      case 'gradus':
+        return <GradusPage />;
       default:
         return <DashboardPage />;
     }
@@ -145,8 +149,10 @@ export default function App() {
       <AuthProvider>
         <GradelyAuthProvider>
           <GradesProvider>
-            <AppContent />
-            <Toaster />
+            <ChatProvider>
+              <AppContent />
+              <Toaster />
+            </ChatProvider>
           </GradesProvider>
         </GradelyAuthProvider>
       </AuthProvider>
